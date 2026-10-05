@@ -1,0 +1,8 @@
+.env
+*.log
+.DS_Store
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+backend/tkd-server
+prototipos_sistema_TKD

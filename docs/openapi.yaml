@@ -1,0 +1,296 @@
+openapi: 3.1.0
+info:
+  title: Sistema TKD API
+  version: 1.0.0
+  description: Contrato del sistema. PostgreSQL es la fuente de verdad y la escuela se obtiene exclusivamente de la sesión.
+servers:
+  - url: /api
+security:
+  - sessionCookie: []
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: tkd_session
+  parameters:
+    Csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: { type: string, minLength: 20 }
+    Idempotency:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 200 }
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Version:
+      name: version
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+  responses:
+    Unauthorized:
+      description: No existe una sesión vigente.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: CSRF inválido o recurso de otra escuela.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: La versión cambió o la operación contradice el estado actual.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        code: { type: string }
+        fields: { type: object, additionalProperties: { type: string } }
+    ResourceCreated:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string, format: uuid }
+        replayed: { type: boolean, default: false }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    SessionResponse:
+      type: object
+      required: [csrfToken]
+      properties: { csrfToken: { type: string } }
+    StudentWrite:
+      type: object
+      additionalProperties: false
+      required: [firstNames,lastNames,birthDate,gradeId,primaryName,primaryRelation,primaryPhone,emergencyName,emergencyRelation,emergencyPhone,enrollmentDate,billingDay]
+      properties:
+        firstNames: { type: string, minLength: 1 }
+        lastNames: { type: string, minLength: 1, description: Admite un solo apellido. }
+        birthDate: { type: string, format: date }
+        gradeId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        emailOwner: { type: string, enum: [alumno, responsable, ''] }
+        primaryName: { type: string, minLength: 1 }
+        primaryRelation: { type: string, minLength: 1 }
+        primaryPhone: { type: string, minLength: 1 }
+        emergencyName: { type: string, minLength: 1 }
+        emergencyRelation: { type: string, minLength: 1 }
+        emergencyPhone: { type: string, minLength: 1 }
+        restrictions: { type: string }
+        healthConsent: { type: boolean, description: Consentimiento registrado en este entorno. }
+        enrollmentDate: { type: string, format: date }
+        billingDay: { type: integer, minimum: 1, maximum: 31 }
+        version: { type: integer, minimum: 1 }
+    StudentStatusWrite:
+      type: object
+      additionalProperties: false
+      required: [status,date,version]
+      properties:
+        status: { type: string, enum: [active,inactive] }
+        date: { type: string, format: date }
+        version: { type: integer, minimum: 1 }
+    NoteWrite:
+      type: object
+      additionalProperties: false
+      required: [date,topic,text]
+      properties:
+        date: { type: string, format: date }
+        topic: { type: string, minLength: 1 }
+        text: { type: string, minLength: 1 }
+        sessionId: { type: [string,'null'], format: uuid }
+        version: { type: integer, minimum: 1 }
+    GroupWrite:
+      type: object
+      additionalProperties: false
+      required: [name,days,start,end]
+      properties:
+        name: { type: string, minLength: 1 }
+        days: { type: array, minItems: 1, uniqueItems: true, items: { type: string, enum: [Lunes,Martes,Miércoles,Jueves,Viernes,Sábado] } }
+        start: { type: string, format: time }
+        end: { type: string, format: time }
+        version: { type: integer, minimum: 1 }
+    AssignmentWrite:
+      type: object
+      additionalProperties: false
+      required: [studentId,assignedFrom]
+      properties:
+        studentId: { type: string, format: uuid }
+        assignedFrom: { type: string, format: date }
+    ParticipantWrite:
+      type: object
+      additionalProperties: false
+      required: [studentId]
+      properties:
+        studentId: { type: string, format: uuid }
+    SessionWrite:
+      type: object
+      additionalProperties: false
+      required: [groupId,date,start,end]
+      properties:
+        groupId: { type: string, format: uuid }
+        date: { type: string, format: date }
+        start: { type: string, format: time }
+        end: { type: string, format: time }
+    SessionStatusWrite:
+      type: object
+      additionalProperties: false
+      required: [status,version]
+      properties:
+        status: { type: string, enum: [Cancelada,Reprogramada] }
+        version: { type: integer, minimum: 1 }
+        date: { type: string, format: date }
+        start: { type: string, format: time }
+        end: { type: string, format: time }
+    AttendanceWrite:
+      type: object
+      additionalProperties: false
+      required: [status,version]
+      properties:
+        status: { type: string, enum: [Presente,Ausente,Falta justificada,Sin registrar] }
+        observation: { type: string }
+        version: { type: integer, minimum: 1 }
+    PaymentWrite:
+      type: object
+      additionalProperties: false
+      required: [chargeId,amount,date]
+      properties:
+        chargeId: { type: string, format: uuid }
+        amount: { type: string, pattern: '^\\d+(\\.\\d{1,2})?$' }
+        date: { type: string, format: date }
+        method: { type: string, enum: ['',Efectivo,Transferencia,Tarjeta,Otro] }
+        observation: { type: string }
+        reason: { type: string, description: Obligatorio al corregir un pago existente. }
+        version: { type: integer, minimum: 1 }
+    VoidPaymentWrite:
+      type: object
+      required: [reason,version]
+      properties: { reason: { type: string, minLength: 1 }, version: { type: integer, minimum: 1 } }
+    DiscountWrite:
+      type: object
+      additionalProperties: false
+      required: [studentId,kind,value,reason,recurring]
+      properties:
+        studentId: { type: string, format: uuid }
+        kind: { type: string, enum: [fixed,percentage] }
+        value: { type: integer, minimum: 1, description: Centavos si es fijo; puntos base si es porcentaje (25 % = 2500). }
+        reason: { type: string, minLength: 1 }
+        period: { type: string, pattern: '^\d{4}-\d{2}$' }
+        recurring: { type: boolean }
+    OrderItemWrite:
+      type: object
+      additionalProperties: false
+      required: [name,quantity,price]
+      properties:
+        name: { type: string, minLength: 1 }
+        size: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        price: { type: string, pattern: '^\\d+(\\.\\d{1,2})?$' }
+    OrderWrite:
+      type: object
+      additionalProperties: false
+      required: [studentId,dueDate,items]
+      properties:
+        studentId: { type: string, format: uuid }
+        dueDate: { type: string, format: date }
+        items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/OrderItemWrite' } }
+    OrderProgressWrite:
+      type: object
+      additionalProperties: false
+      required: [requested,received,delivered,cancelled,version]
+      properties:
+        requested: { type: boolean }
+        received: { type: integer, minimum: 0 }
+        delivered: { type: integer, minimum: 0 }
+        cancelled: { type: boolean }
+        reason: { type: string }
+        version: { type: integer, minimum: 1 }
+    OrderBulkProgressItem:
+      type: object
+      additionalProperties: false
+      required: [id,version]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+    OrderBulkProgressWrite:
+      type: object
+      additionalProperties: false
+      required: [mode,items]
+      properties:
+        mode: { type: string, enum: [receivePending,deliverReceived] }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/OrderBulkProgressItem' }
+paths:
+  /auth/login:
+    post:
+      security: []
+      operationId: login
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+      responses: { '200': { description: Sesión iniciada, content: { application/json: { schema: { $ref: '#/components/schemas/SessionResponse' } } } }, '401': { $ref: '#/components/responses/Unauthorized' } }
+  /auth/me:
+    get: { operationId: currentSession, responses: { '200': { description: Sesión vigente }, '401': { $ref: '#/components/responses/Unauthorized' } } }
+  /auth/logout:
+    post: { operationId: logout, parameters: [{ $ref: '#/components/parameters/Csrf' }], responses: { '204': { description: Sesión invalidada } } }
+  /bootstrap:
+    get: { operationId: bootstrap, responses: { '200': { description: Datos iniciales filtrados por la escuela de la sesión }, '401': { $ref: '#/components/responses/Unauthorized' } } }
+  /demo/reset:
+    post:
+      operationId: resetDemo
+      description: Disponible sólo cuando el restablecimiento local está habilitado. Elimina y vuelve a preparar exclusivamente la escuela de la sesión.
+      parameters: [{ $ref: '#/components/parameters/Csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [confirm], properties: { confirm: { type: string, const: RESTABLECER } } } } } }
+      responses: { '204': { description: Datos restablecidos y sesión invalidada }, '404': { description: Restablecimiento deshabilitado } }
+  /students:
+    post:
+      operationId: createStudent
+      parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StudentWrite' } } } }
+      responses: { '201': { description: Alumno creado, content: { application/json: { schema: { $ref: '#/components/schemas/ResourceCreated' } } } }, '200': { description: Reintento idempotente del alta }, '400': { description: Validación incorrecta } }
+  /students/{id}:
+    put: { operationId: updateStudent, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StudentWrite' } } } }, responses: { '204': { description: Actualizado }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /students/{id}/status:
+    post: { operationId: changeStudentStatus, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StudentStatusWrite' } } } }, responses: { '204': { description: Estado actualizado }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /students/{id}/notes:
+    post: { operationId: createNote, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NoteWrite' } } } }, responses: { '201': { description: Nota creada }, '200': { description: Reintento idempotente del alta } } }
+  /notes/{id}:
+    put: { operationId: updateNote, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NoteWrite' } } } }, responses: { '204': { description: Nota actualizada }, '409': { $ref: '#/components/responses/Conflict' } } }
+    delete: { operationId: deleteNote, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ name: version, in: query, required: true, schema: { type: integer, minimum: 1 } },{ $ref: '#/components/parameters/Csrf' }], responses: { '204': { description: Nota eliminada }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /groups:
+    post: { operationId: createGroup, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GroupWrite' } } } }, responses: { '201': { description: Grupo creado }, '200': { description: Reintento idempotente del alta } } }
+  /groups/{id}:
+    put: { operationId: updateGroup, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GroupWrite' } } } }, responses: { '204': { description: Grupo actualizado } } }
+  /groups/{id}/assignments:
+    post: { operationId: assignStudent, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AssignmentWrite' } } } }, responses: { '204': { description: Asignación vigente } } }
+  /sessions:
+    post: { operationId: createSession, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }, responses: { '201': { description: Sesión creada o recuperada } } }
+  /sessions/{id}/participants:
+    post: { operationId: inviteParticipant, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ParticipantWrite' } } } }, responses: { '204': { description: Participante presente sin duplicarse } } }
+  /sessions/{id}/attendance/{student}:
+    put: { operationId: updateAttendance, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ name: student, in: path, required: true, schema: { type: string, format: uuid } },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttendanceWrite' } } } }, responses: { '204': { description: Asistencia actualizada }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /sessions/{id}/status:
+    put: { operationId: updateSessionStatus, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionStatusWrite' } } } }, responses: { '204': { description: Cancelación o reprogramación registrada conservando la sesión original } } }
+  /payments:
+    post: { operationId: createPayment, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentWrite' } } } }, responses: { '201': { description: Pago registrado }, '200': { description: Reintento idempotente }, '400': { description: Importe inválido o sobrepago } } }
+  /payments/{id}/void:
+    post: { operationId: voidPayment, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VoidPaymentWrite' } } } }, responses: { '204': { description: Pago anulado con historial } } }
+  /payments/{id}:
+    put: { operationId: correctPayment, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentWrite' } } } }, responses: { '204': { description: Pago corregido y cambio conservado en historial }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /discounts:
+    post: { operationId: createDiscount, parameters: [{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DiscountWrite' } } } }, responses: { '201': { description: Descuento futuro registrado }, '400': { description: Datos o alumno inválidos } } }
+  /orders:
+    post: { operationId: createOrder, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderWrite' } } } }, responses: { '201': { description: Pedido y cobros por artículo creados atómicamente }, '200': { description: Reintento idempotente del alta } } }
+  /orders/{id}/progress:
+    post: { operationId: updateOrderProgressBulk, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderBulkProgressWrite' } } } }, responses: { '204': { description: Todos los artículos activos avanzaron atómicamente o el reintento ya había sido aplicado }, '400': { description: Modo, lista o cantidades inválidas }, '404': { description: Pedido no encontrado en la escuela }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /order-items/{id}:
+    put: { operationId: updateOrderProgress, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderProgressWrite' } } } }, responses: { '204': { description: Avance actualizado }, '409': { $ref: '#/components/responses/Conflict' } } }

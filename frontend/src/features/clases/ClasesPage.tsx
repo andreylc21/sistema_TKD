@@ -1,66 +1,46 @@
-import { useRef, useState } from "react";
-import type { Bootstrap, GroupWrite } from "../../shared/api/contracts";
+import { useState } from "react";
+import type { Bootstrap } from "../../shared/api/contracts";
 import { date } from "../../shared/lib/format";
-import { Dialog } from "../../shared/ui/Dialog";
-import { Empty, Notice, PageHeader } from "../../shared/ui/PageHeader";
-import { createGroup } from "./api/clases.api";
-import { GroupForm } from "./components/GroupForm";
-import { SessionDetail } from "./components/SessionDetail";
+import { navigate } from "../../shared/lib/navigation";
+import { paths, type ClassesView } from "../../shared/lib/paths";
+import { Link } from "../../shared/ui/Link";
+import { Empty, PageHeader } from "../../shared/ui/PageHeader";
 import { GroupActions } from "./GroupActions";
 
-type View = "day" | "groups";
+const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 
 export function ClasesPage({
   data,
   reload,
-  onStudent,
-  initialSessionId,
+  view,
+  initialDate,
 }: {
   data: Bootstrap;
   reload: () => Promise<void>;
-  onStudent: (id: string) => void;
-  initialSessionId?: string;
+  view: ClassesView;
+  initialDate?: string;
 }) {
-  const [view, setView] = useState<View>("day");
-  const [selectedDate, setSelectedDate] = useState(data.demoDate);
-  const [showGroupForm, setShowGroupForm] = useState(false);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(initialSessionId);
-  const [error, setError] = useState("");
-  const groupKey = useRef(crypto.randomUUID());
-  const selectedSession = data.sessions.find((session) => session.id === selectedSessionId);
-  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(selectedDate);
+  const [selectedDate, setSelectedDate] = useState(initialDate ?? data.demoDate);
+  const [routeDate, setRouteDate] = useState(initialDate);
+  if (view === "day" && initialDate !== routeDate) {
+    // Un enlace a /clases sin fecha (menú, Inicio) vuelve a la fecha operativa.
+    setRouteDate(initialDate);
+    setSelectedDate(initialDate ?? data.demoDate);
+  }
+  const validDate = isoDate.test(selectedDate);
   const daySessions = data.sessions
     .filter((session) => validDate && session.date === selectedDate)
     .sort((left, right) => left.time.localeCompare(right.time));
 
-  async function addGroup(body: GroupWrite) {
-    setError("");
-    try {
-      await createGroup(body, groupKey.current);
-      groupKey.current = crypto.randomUUID();
-      setShowGroupForm(false);
-      await reload();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo crear el grupo.");
-    }
-  }
-
-  if (selectedSession) {
-    return (
-      <SessionDetail
-        data={data}
-        session={selectedSession}
-        reload={reload}
-        onBack={() => setSelectedSessionId(undefined)}
-        onStudent={onStudent}
-      />
-    );
+  function chooseDate(value: string) {
+    setSelectedDate(value);
+    // La fecha viaja en la URL para que "Atrás" desde una clase regrese al mismo día.
+    if (isoDate.test(value)) navigate(paths.clases("day", value), { replace: true });
   }
 
   return (
     <>
       <PageHeader
-        title="Clases"
         help="Consulta una clase por fecha para pasar lista, o administra los grupos y sus horarios recurrentes."
         context={
           view === "day"
@@ -71,9 +51,9 @@ export function ClasesPage({
         }
         actions={
           view === "groups" ? (
-            <button className="button" onClick={() => setShowGroupForm(true)}>
+            <Link className="button" to={paths.grupoNuevo}>
               Crear grupo
-            </button>
+            </Link>
           ) : undefined
         }
       />
@@ -84,7 +64,9 @@ export function ClasesPage({
           role="tab"
           aria-selected={view === "day"}
           aria-controls="panel-clases"
-          onClick={() => setView("day")}
+          onClick={() =>
+            navigate(paths.clases("day", validDate ? selectedDate : undefined), { replace: true })
+          }
         >
           Clases del día
         </button>
@@ -94,7 +76,7 @@ export function ClasesPage({
           role="tab"
           aria-selected={view === "groups"}
           aria-controls="panel-clases"
-          onClick={() => setView("groups")}
+          onClick={() => navigate(paths.clases("groups"), { replace: true })}
         >
           Grupos y horarios
         </button>
@@ -110,7 +92,7 @@ export function ClasesPage({
                   id="class-date"
                   type="date"
                   value={selectedDate}
-                  onChange={(event) => setSelectedDate(event.target.value)}
+                  onChange={(event) => chooseDate(event.target.value)}
                 />
               </div>
               <p className="results-meta">
@@ -126,7 +108,7 @@ export function ClasesPage({
                       <th>Grupo</th>
                       <th>Horario</th>
                       <th>Estado</th>
-                      <th>Participantes</th>
+                      <th className="num">Participantes</th>
                       <th>
                         <span className="sr-only">Acción</span>
                       </th>
@@ -144,7 +126,7 @@ export function ClasesPage({
                             <strong>{group?.name ?? "Grupo no disponible"}</strong>
                             <span>{date(session.date)}</span>
                           </td>
-                          <td>{session.time}</td>
+                          <td className="nowrap">{session.time}</td>
                           <td>
                             <span
                               className={`badge ${session.status === "Programada" ? "light" : "warning"}`}
@@ -152,16 +134,13 @@ export function ClasesPage({
                               {session.status}
                             </span>
                           </td>
-                          <td>Participantes: {session.attendance.length}</td>
+                          <td className="num">{session.attendance.length}</td>
                           <td>
-                            <button
-                              className="button secondary small"
-                              onClick={() => setSelectedSessionId(session.id)}
-                            >
+                            <Link className="button secondary small" to={paths.sesion(session.id)}>
                               {session.status === "Programada" && pending
                                 ? "Pasar lista"
                                 : "Abrir clase"}
-                            </button>
+                            </Link>
                           </td>
                         </tr>
                       );
@@ -190,7 +169,7 @@ export function ClasesPage({
                   <th>Grupo</th>
                   <th>Días</th>
                   <th>Horario</th>
-                  <th>Asignaciones</th>
+                  <th className="num">Alumnos</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -201,15 +180,10 @@ export function ClasesPage({
                       <strong>{group.name}</strong>
                     </td>
                     <td>{group.days.join(", ")}</td>
-                    <td>{group.time}</td>
-                    <td>Alumnos: {group.students.length}</td>
+                    <td className="nowrap">{group.time}</td>
+                    <td className="num">{group.students.length}</td>
                     <td>
-                      <GroupActions
-                        group={group}
-                        data={data}
-                        reload={reload}
-                        onSession={(id) => setSelectedSessionId(id)}
-                      />
+                      <GroupActions group={group} data={data} reload={reload} />
                     </td>
                   </tr>
                 ))}
@@ -218,13 +192,6 @@ export function ClasesPage({
           </section>
         )}
       </div>
-
-      {showGroupForm && (
-        <Dialog title="Crear grupo" onClose={() => setShowGroupForm(false)}>
-          {error && <Notice kind="error">{error}</Notice>}
-          <GroupForm onSubmit={addGroup} onCancel={() => setShowGroupForm(false)} />
-        </Dialog>
-      )}
     </>
   );
 }

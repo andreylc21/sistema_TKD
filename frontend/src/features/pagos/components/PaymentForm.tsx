@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import type { Bootstrap, Charge, PaymentWrite } from "../../../shared/api/contracts";
 import { date, money } from "../../../shared/lib/format";
+import { Money } from "../../../shared/ui/Money";
 import { Empty, Notice } from "../../../shared/ui/PageHeader";
 import { createPayment } from "../api/pagos.api";
 import { chargePresentation } from "../model/pagos.model";
@@ -19,21 +20,25 @@ export function PaymentForm({
   onCancel: () => void;
 }) {
   const initialCharge = charges.find((charge) => charge.id === initialChargeId);
-  const [studentQuery, setStudentQuery] = useState("");
   const [studentId, setStudentId] = useState(initialCharge?.studentId ?? "");
   const [chargeId, setChargeId] = useState(initialCharge?.id ?? "");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const idempotencyKey = useRef(crypto.randomUUID());
+  // Sólo alumnos con saldo pendiente, en orden alfabético y con su saldo para confirmar la elección.
   const students = useMemo(
     () =>
-      data.students.filter(
-        (student) =>
-          charges.some((charge) => charge.studentId === student.id) &&
-          student.name.toLocaleLowerCase("es").includes(studentQuery.toLocaleLowerCase("es")),
-      ),
-    [charges, data.students, studentQuery],
+      data.students
+        .map((student) => ({
+          student,
+          balance: charges
+            .filter((charge) => charge.studentId === student.id)
+            .reduce((sum, charge) => sum + chargePresentation(charge, data).balance, 0),
+        }))
+        .filter(({ balance }) => balance > 0)
+        .sort((left, right) => left.student.name.localeCompare(right.student.name, "es")),
+    [charges, data],
   );
   const studentCharges = charges.filter((charge) => charge.studentId === studentId);
   const selected = studentCharges.find((charge) => charge.id === chargeId);
@@ -88,16 +93,6 @@ export function PaymentForm({
         </div>
       )}
       <div className="field full-span">
-        <label htmlFor="student-search">Buscar alumno</label>
-        <input
-          id="student-search"
-          type="search"
-          value={studentQuery}
-          onChange={(event) => setStudentQuery(event.target.value)}
-          placeholder="Escribe parte del nombre"
-        />
-      </div>
-      <div className="field full-span">
         <label htmlFor="payment-student">Alumno</label>
         <select
           id="payment-student"
@@ -110,9 +105,9 @@ export function PaymentForm({
           required
         >
           <option value="">Selecciona un alumno</option>
-          {students.map((student) => (
+          {students.map(({ student, balance }) => (
             <option key={student.id} value={student.id}>
-              {student.name}
+              {student.name} · saldo {money(balance)}
             </option>
           ))}
         </select>
@@ -150,19 +145,27 @@ export function PaymentForm({
           </div>
           <div>
             <span>Total</span>
-            <strong>{money(selected.total)}</strong>
+            <strong>
+              <Money value={selected.total} />
+            </strong>
           </div>
           <div>
             <span>Recibido</span>
-            <strong>{money(state.received)}</strong>
+            <strong>
+              <Money value={state.received} />
+            </strong>
           </div>
           <div>
             <span>Saldo actual</span>
-            <strong>{money(state.balance)}</strong>
+            <strong>
+              <Money value={state.balance} />
+            </strong>
           </div>
           <div>
             <span>Saldo resultante</span>
-            <strong>{money(Math.max(0, state.balance - numericAmount))}</strong>
+            <strong>
+              <Money value={Math.max(0, state.balance - numericAmount)} />
+            </strong>
           </div>
         </div>
       )}
@@ -222,7 +225,7 @@ export function PaymentForm({
         Registro manual: no comprueba automáticamente una transferencia bancaria.
       </p>
       <div className="form-actions full-span">
-        <button type="button" className="button secondary" data-dialog-close onClick={onCancel}>
+        <button type="button" className="button secondary" onClick={onCancel}>
           Cancelar
         </button>
         <button

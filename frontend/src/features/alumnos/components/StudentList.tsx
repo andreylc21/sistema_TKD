@@ -1,16 +1,12 @@
 import { useMemo, useState } from "react";
 import type { Student } from "../../../shared/api/contracts";
+import { paths } from "../../../shared/lib/paths";
+import { Link } from "../../../shared/ui/Link";
 import { Empty } from "../../../shared/ui/PageHeader";
 
 type StudentStatusFilter = "Todos" | Student["status"];
 
-export function StudentList({
-  students,
-  onSelect,
-}: {
-  students: Student[];
-  onSelect: (studentId: string) => void;
-}) {
+export function StudentList({ students }: { students: Student[] }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StudentStatusFilter>("Todos");
   const filtered = useMemo(() => {
@@ -77,9 +73,9 @@ export function StudentList({
                     </span>
                   </td>
                   <td>
-                    <button className="button secondary small" onClick={() => onSelect(student.id)}>
+                    <Link className="button secondary small" to={paths.alumno(student.id)}>
                       Ver expediente
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               ))}

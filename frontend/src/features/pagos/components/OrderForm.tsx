@@ -78,7 +78,7 @@ export function OrderForm({
       <OrderItemFields suffix="" label="Artículo 1" required />
       <OrderItemFields suffix="2" label="Artículo 2" />
       <div className="form-actions full-span">
-        <button type="button" className="button secondary" data-dialog-close onClick={onCancel}>
+        <button type="button" className="button secondary" onClick={onCancel}>
           Cancelar
         </button>
         <button className="button" disabled={busy}>

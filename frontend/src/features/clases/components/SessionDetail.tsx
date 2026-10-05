@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
 import type { Attendance, Bootstrap, Session } from "../../../shared/api/contracts";
 import { date } from "../../../shared/lib/format";
+import { paths } from "../../../shared/lib/paths";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 import { Dialog } from "../../../shared/ui/Dialog";
+import { Link } from "../../../shared/ui/Link";
 import { Empty, Notice, PageHeader } from "../../../shared/ui/PageHeader";
-import { NoteForm } from "../../alumnos/components/NoteForm";
 import { inviteParticipant, updateAttendance, updateSessionStatus } from "../api/clases.api";
 
 const attendanceStatuses: Attendance["status"][] = [
@@ -18,19 +19,14 @@ export function SessionDetail({
   data,
   session,
   reload,
-  onBack,
-  onStudent,
 }: {
   data: Bootstrap;
   session: Session;
   reload: () => Promise<void>;
-  onBack: () => void;
-  onStudent: (studentId: string) => void;
 }) {
   const [showInvite, setShowInvite] = useState(false);
   const [commentEntry, setCommentEntry] = useState<Attendance>();
   const [restrictionStudentId, setRestrictionStudentId] = useState<string>();
-  const [noteStudentId, setNoteStudentId] = useState<string>();
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -46,7 +42,6 @@ export function SessionDetail({
     ? data.students.find((item) => item.id === commentEntry.studentId)
     : undefined;
   const restrictionStudent = data.students.find((item) => item.id === restrictionStudentId);
-  const noteStudent = data.students.find((item) => item.id === noteStudentId);
 
   async function saveStatus(entry: Attendance, status: Attendance["status"]) {
     setError("");
@@ -123,11 +118,7 @@ export function SessionDetail({
 
   return (
     <>
-      <button className="text-button detail-back" onClick={onBack}>
-        ← Volver a clases
-      </button>
       <PageHeader
-        title={group.name}
         help="Registra la asistencia y conserva comentarios propios de esta clase. Las notas de seguimiento se guardan aparte en el expediente."
         context={
           <span>
@@ -185,9 +176,9 @@ export function SessionDetail({
                 return (
                   <tr key={entry.studentId}>
                     <td className="primary-cell">
-                      <button className="text-button" onClick={() => onStudent(student.id)}>
+                      <Link className="text-button" to={paths.alumno(student.id)}>
                         {student.name}
-                      </button>
+                      </Link>
                       <span>{entry.temporary ? "Invitado temporal" : "Asignado al grupo"}</span>
                     </td>
                     <td>
@@ -240,12 +231,9 @@ export function SessionDetail({
                     </td>
                     <td>
                       {editable && (
-                        <button
-                          className="text-button"
-                          onClick={() => setNoteStudentId(student.id)}
-                        >
+                        <Link className="text-button" to={paths.sesionNota(current.id, student.id)}>
                           Agregar nota de seguimiento
-                        </button>
+                        </Link>
                       )}
                     </td>
                   </tr>
@@ -343,24 +331,6 @@ export function SessionDetail({
               Cerrar
             </button>
           </div>
-        </Dialog>
-      )}
-      {noteStudent && (
-        <Dialog
-          title={`Nota de seguimiento · ${noteStudent.name}`}
-          onClose={() => setNoteStudentId(undefined)}
-        >
-          <NoteForm
-            studentId={noteStudent.id}
-            today={data.demoDate}
-            sessionId={current.id}
-            onCancel={() => setNoteStudentId(undefined)}
-            onSaved={async () => {
-              await reload();
-              setNoteStudentId(undefined);
-              setMessage("Nota de seguimiento guardada en el expediente.");
-            }}
-          />
         </Dialog>
       )}
       {showInvite && (

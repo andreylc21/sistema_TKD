@@ -63,7 +63,7 @@ export function GroupForm({
       </div>
       <div className="form-actions full-span">
         {onCancel && (
-          <button type="button" className="button secondary" data-dialog-close onClick={onCancel}>
+          <button type="button" className="button secondary" onClick={onCancel}>
             Cancelar
           </button>
         )}

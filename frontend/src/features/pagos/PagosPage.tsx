@@ -1,82 +1,61 @@
-import { useState } from "react";
-import type { Bootstrap, Order } from "../../shared/api/contracts";
-import { Dialog } from "../../shared/ui/Dialog";
-import { Notice, PageHeader } from "../../shared/ui/PageHeader";
+import type { Bootstrap } from "../../shared/api/contracts";
+import type { DueStatus } from "../../shared/lib/format";
+import { goBack, navigate } from "../../shared/lib/navigation";
+import { paths, type PaymentsTab } from "../../shared/lib/paths";
+import { FormScreen } from "../../shared/ui/FormScreen";
+import { Link } from "../../shared/ui/Link";
+import { PageHeader } from "../../shared/ui/PageHeader";
 import { ChargesOverview } from "./components/ChargesView";
-import { OrderDetail } from "./components/OrderDetail";
 import { OrderForm } from "./components/OrderForm";
 import { OrdersTable } from "./components/OrdersTable";
 import { PaymentForm } from "./components/PaymentForm";
 import { PaymentHistory } from "./PaymentHistory";
-import { getPendingCharges } from "./model/pagos.model";
+import { getPendingCharges, paymentsTabs } from "./model/pagos.model";
 
-export type PaymentsTab = "cobros" | "saldos" | "pedidos";
-export type PaymentsTarget = {
-  tab?: PaymentsTab;
-  chargeId?: string;
-  orderId?: string;
-  due?: "Vencido" | "Próximo a pagar" | "Vence hoy" | "Pendiente" | "Por vencer";
-};
-type DialogName = "payment" | "order" | null;
+type DueFilter = DueStatus | "Por vencer" | "";
+type PaymentTab = Exclude<PaymentsTab, "pedidos">;
 
-const tabs: { id: PaymentsTab; label: string }[] = [
-  { id: "cobros", label: "Cobros y pagos" },
-  { id: "saldos", label: "Saldos pendientes" },
-  { id: "pedidos", label: "Pedidos" },
+const dueFilters: DueFilter[] = [
+  "Por vencer",
+  "Pendiente",
+  "Próximo a pagar",
+  "Vence hoy",
+  "Vencido",
 ];
 
 export function PagosPage({
   data,
   reload,
-  initialTarget,
+  tab,
+  due,
 }: {
   data: Bootstrap;
   reload: () => Promise<void>;
-  initialTarget?: PaymentsTarget;
+  tab: PaymentsTab;
+  due?: string;
 }) {
-  const [tab, setTab] = useState<PaymentsTab>(initialTarget?.tab ?? "cobros");
-  const [dialog, setDialog] = useState<DialogName>(initialTarget?.chargeId ? "payment" : null);
-  const [selectedChargeId, setSelectedChargeId] = useState(initialTarget?.chargeId);
-  const [message, setMessage] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(
-    () =>
-      data.orders.find(
-        (order) => order.uuid === initialTarget?.orderId || order.id === initialTarget?.orderId,
-      ) ?? null,
-  );
   const pendingCharges = getPendingCharges(data);
-
-  if (selectedOrder) {
-    return (
-      <OrderDetail
-        data={data}
-        order={selectedOrder}
-        reload={reload}
-        onBack={() => setSelectedOrder(null)}
-      />
-    );
-  }
+  const initialDue = dueFilters.find((item) => item === due) ?? "";
+  const paymentTab: PaymentTab = tab === "saldos" ? "saldos" : "cobros";
 
   return (
     <>
       <PageHeader
-        title="Pagos"
         help="Consulta cada cargo con su avance y vencimiento; los pagos y la logística de pedidos conservan estados independientes."
         actions={
-          <button
-            className="button"
-            onClick={() => {
-              setSelectedChargeId(undefined);
-              setDialog(tab === "pedidos" ? "order" : "payment");
-            }}
-          >
-            {tab === "pedidos" ? "Registrar pedido" : "Registrar pago"}
-          </button>
+          tab === "pedidos" ? (
+            <Link className="button" to={paths.pedidoNuevo}>
+              Registrar pedido
+            </Link>
+          ) : (
+            <Link className="button" to={paths.pagoNuevo(paymentTab)}>
+              Registrar pago
+            </Link>
+          )
         }
       />
-      {message && <Notice>{message}</Notice>}
       <div className="tabs" role="tablist" aria-label="Secciones de pagos">
-        {tabs.map((item) => (
+        {paymentsTabs.map((item) => (
           <button
             key={item.id}
             id={`tab-${item.id}`}
@@ -84,7 +63,7 @@ export function PagosPage({
             role="tab"
             aria-selected={tab === item.id}
             aria-controls={`panel-${item.id}`}
-            onClick={() => setTab(item.id)}
+            onClick={() => navigate(paths.pagos(item.id), { replace: true })}
           >
             {item.label}
           </button>
@@ -95,53 +74,65 @@ export function PagosPage({
           <>
             <ChargesOverview
               data={data}
-              onPayment={(charge) => {
-                setSelectedChargeId(charge.id);
-                setDialog("payment");
-              }}
+              paymentLink={(charge) => paths.pagoNuevo("cobros", charge.id)}
             />
             <PaymentHistory data={data} reload={reload} />
           </>
         )}
         {tab === "saldos" && (
           <ChargesOverview
+            key={initialDue}
             data={{ ...data, charges: pendingCharges }}
-            initialDue={initialTarget?.due ?? ""}
-            onPayment={(charge) => {
-              setSelectedChargeId(charge.id);
-              setDialog("payment");
-            }}
+            initialDue={initialDue}
+            paymentLink={(charge) => paths.pagoNuevo("saldos", charge.id)}
           />
         )}
-        {tab === "pedidos" && <OrdersTable data={data} onSelect={setSelectedOrder} />}
+        {tab === "pedidos" && <OrdersTable data={data} />}
       </div>
-      {dialog === "payment" && (
-        <Dialog title="Registrar pago manual" onClose={() => setDialog(null)}>
-          <PaymentForm
-            data={data}
-            charges={pendingCharges}
-            initialChargeId={selectedChargeId}
-            onCancel={() => setDialog(null)}
-            onSaved={async () => {
-              await reload();
-              setDialog(null);
-              setMessage("Pago registrado; saldo y estados actualizados.");
-            }}
-          />
-        </Dialog>
-      )}
-      {dialog === "order" && (
-        <Dialog title="Registrar pedido" onClose={() => setDialog(null)}>
-          <OrderForm
-            data={data}
-            onCancel={() => setDialog(null)}
-            onSaved={async () => {
-              setDialog(null);
-              await reload();
-            }}
-          />
-        </Dialog>
-      )}
     </>
+  );
+}
+
+export function PaymentPage({
+  data,
+  tab,
+  chargeId,
+  reload,
+}: {
+  data: Bootstrap;
+  tab: PaymentTab;
+  chargeId?: string;
+  reload: () => Promise<void>;
+}) {
+  const parent = paths.pagos(tab);
+  return (
+    <FormScreen>
+      <PaymentForm
+        data={data}
+        charges={getPendingCharges(data)}
+        initialChargeId={chargeId}
+        onCancel={() => goBack(parent)}
+        onSaved={async () => {
+          await reload();
+          goBack(parent, { notice: "Pago registrado; saldo y estados actualizados.", force: true });
+        }}
+      />
+    </FormScreen>
+  );
+}
+
+export function OrderFormPage({ data, reload }: { data: Bootstrap; reload: () => Promise<void> }) {
+  const parent = paths.pagos("pedidos");
+  return (
+    <FormScreen>
+      <OrderForm
+        data={data}
+        onCancel={() => goBack(parent)}
+        onSaved={async () => {
+          await reload();
+          goBack(parent, { notice: "Pedido registrado con sus cobros.", force: true });
+        }}
+      />
+    </FormScreen>
   );
 }

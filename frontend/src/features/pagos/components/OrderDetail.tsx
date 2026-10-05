@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import type { Bootstrap, Order, OrderItem } from "../../../shared/api/contracts";
-import { money } from "../../../shared/lib/format";
 import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 import { Dialog } from "../../../shared/ui/Dialog";
+import { Metric, Money } from "../../../shared/ui/Money";
 import { Notice, PageHeader } from "../../../shared/ui/PageHeader";
 import { updateOrderProgress, updateOrderProgressBulk } from "../api/pagos.api";
 import { orderItemPending } from "../model/pagos.model";
@@ -14,12 +14,10 @@ export function OrderDetail({
   data,
   order,
   reload,
-  onBack,
 }: {
   data: Bootstrap;
   order: Order;
   reload: () => Promise<void>;
-  onBack: () => void;
 }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -120,11 +118,7 @@ export function OrderDetail({
 
   return (
     <>
-      <button className="text-button detail-back" onClick={onBack}>
-        ← Volver a pedidos
-      </button>
       <PageHeader
-        title={`Pedido ${current.id}`}
         help="Recepción, entrega y pago avanzan por separado. Sólo se puede entregar mercancía ya recibida."
         context={`${student?.name ?? "Alumno no disponible"} · ${current.status}`}
         actions={
@@ -149,9 +143,15 @@ export function OrderDetail({
       {error && <Notice kind="error">{error}</Notice>}
       {message && <Notice>{message}</Notice>}
       <div className="summary-strip">
-        <Metric label="Total" value={current.total} />
-        <Metric label="Dinero recibido" value={current.paid} />
-        <Metric label="Saldo" value={current.total - current.paid} />
+        <Metric label="Total">
+          <Money value={current.total} />
+        </Metric>
+        <Metric label="Dinero recibido">
+          <Money value={current.paid} />
+        </Metric>
+        <Metric label="Saldo">
+          <Money value={current.total - current.paid} />
+        </Metric>
       </div>
       <section className="table-surface table-wrap spacer-top">
         <table>
@@ -343,15 +343,6 @@ function QuantityAction({
       <button className="button secondary small" disabled={busy} onClick={onRun}>
         {busy ? "Guardando…" : label}
       </button>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="summary-item">
-      <span>{label}</span>
-      <strong>{money(value)}</strong>
     </div>
   );
 }

@@ -1,11 +1,10 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+/** Ayuda, contexto y acciones de la pantalla. El título vive en la barra superior (AppLayout). */
 export function PageHeader({
-  title,
   help,
   context,
   actions,
 }: {
-  title: string;
   help?: ReactNode;
   context?: ReactNode;
   actions?: ReactNode;
@@ -39,7 +38,6 @@ export function PageHeader({
     <header className="page-header">
       <div className="page-heading">
         <div className="page-title-row">
-          <h1>{title}</h1>
           {help && (
             <div
               ref={helpRef}
@@ -56,7 +54,7 @@ export function PageHeader({
               <button
                 type="button"
                 className="help-button"
-                aria-label={`Ayuda sobre ${title}`}
+                aria-label="Ayuda sobre esta pantalla"
                 aria-expanded={open}
                 aria-controls={helpId}
                 onClick={() => {
@@ -73,8 +71,8 @@ export function PageHeader({
               )}
             </div>
           )}
+          {context && <div className="page-context">{context}</div>}
         </div>
-        {context && <div className="page-context">{context}</div>}
       </div>
       {actions && <div className="header-actions">{actions}</div>}
     </header>

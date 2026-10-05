@@ -2,10 +2,7 @@ import { PageHeader } from "../../shared/ui/PageHeader";
 export function ExamenesPage() {
   return (
     <>
-      <PageHeader
-        title="Exámenes"
-        help="Consulta antecedentes de evaluación separados de notas y pagos actuales."
-      />
+      <PageHeader help="Consulta antecedentes de evaluación separados de notas y pagos actuales." />
       <section className="card">
         <div className="card-body">
           <h2>Examen de octubre</h2>

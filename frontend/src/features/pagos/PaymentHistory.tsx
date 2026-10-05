@@ -3,6 +3,7 @@ import type { Bootstrap, Payment, PaymentWrite } from "../../shared/api/contract
 import { date, money } from "../../shared/lib/format";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { Dialog } from "../../shared/ui/Dialog";
+import { Money } from "../../shared/ui/Money";
 import { Notice } from "../../shared/ui/PageHeader";
 import { correctPayment, voidPayment as voidPaymentRequest } from "./api/pagos.api";
 
@@ -52,21 +53,21 @@ export function PaymentHistory({ data, reload }: { data: Bootstrap; reload: () =
       {error && !editing && <Notice kind="error">{error}</Notice>}
       {message && <Notice>{message}</Notice>}
       <div className="table-wrap">
-        <table>
+        <table className="financial-table">
           <thead>
             <tr>
               <th>Fecha</th>
               <th>Alumno</th>
               <th>Forma</th>
               <th>Estado</th>
-              <th>Importe</th>
+              <th className="num">Importe</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {data.payments.map((payment) => (
               <tr key={payment.id}>
-                <td>{date(payment.date)}</td>
+                <td className="nowrap">{date(payment.date)}</td>
                 <td>{data.students.find((s) => s.id === payment.studentId)?.name}</td>
                 <td>{payment.method || "Sin especificar"}</td>
                 <td>
@@ -74,7 +75,9 @@ export function PaymentHistory({ data, reload }: { data: Bootstrap; reload: () =
                     {payment.valid ? "Vigente" : "Anulado"}
                   </span>
                 </td>
-                <td>{money(payment.amount)}</td>
+                <td className="num">
+                  <Money value={payment.amount} />
+                </td>
                 <td>
                   {payment.valid && (
                     <div className="inline-actions">

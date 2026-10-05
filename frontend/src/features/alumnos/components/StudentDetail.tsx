@@ -1,50 +1,45 @@
-import type { Bootstrap, Note, Student } from "../../../shared/api/contracts";
-import { date, money, paidFor } from "../../../shared/lib/format";
+import type { Bootstrap, Student } from "../../../shared/api/contracts";
+import { paidFor } from "../../../shared/lib/format";
+import { paths } from "../../../shared/lib/paths";
+import { Link } from "../../../shared/ui/Link";
+import { Money } from "../../../shared/ui/Money";
 import { Empty, PageHeader } from "../../../shared/ui/PageHeader";
+import { studentNotes } from "../model/alumnos.model";
+import { NoteList } from "./NoteList";
+
+const previewNotes = 3;
 
 export function StudentDetail({
   data,
   student,
-  onBack,
-  onEdit,
-  onAddNote,
-  onEditNote,
-  onDeleteNote,
+  reload,
   onChangeStatus,
 }: {
   data: Bootstrap;
   student: Student;
-  onBack: () => void;
-  onEdit: () => void;
-  onAddNote: () => void;
-  onEditNote: (note: Note) => void;
-  onDeleteNote: (note: Note) => void;
+  reload: () => Promise<void>;
   onChangeStatus: () => void;
 }) {
-  const notes = data.notes.filter((note) => note.studentId === student.id);
+  const notes = studentNotes(data.notes, student.id);
   const balance = data.charges
     .filter((charge) => charge.studentId === student.id)
     .reduce((sum, charge) => sum + charge.total - paidFor(charge.id, data.payments), 0);
 
   return (
     <>
-      <button className="text-button detail-back" onClick={onBack}>
-        ← Volver a alumnos
-      </button>
       <PageHeader
-        title={student.name}
         context={`${student.age} años · ${student.grade}`}
         actions={
           <>
             <span className={`badge ${student.status === "Activo" ? "success" : "light"}`}>
               {student.status}
             </span>
-            <button className="button secondary" onClick={onEdit}>
+            <Link className="button secondary" to={paths.alumnoEditar(student.id)}>
               Editar expediente
-            </button>
-            <button className="button secondary" onClick={onAddNote}>
+            </Link>
+            <Link className="button secondary" to={paths.notaNueva(student.id)}>
               Agregar nota
-            </button>
+            </Link>
             <button
               className={`button secondary ${student.status === "Activo" ? "danger" : ""}`}
               onClick={onChangeStatus}
@@ -91,41 +86,28 @@ export function StudentDetail({
       <div className="grid cols-2 spacer-top">
         <section className="card">
           <div className="card-header">
-            <h2>Notas de seguimiento</h2>
+            <div>
+              <h2>Notas de seguimiento</h2>
+              {notes.length > previewNotes && (
+                <p>
+                  Las {previewNotes} más recientes de {notes.length}.
+                </p>
+              )}
+            </div>
+            {notes.length > 0 && (
+              <Link className="text-button" to={paths.notas(student.id)}>
+                Ver todas ({notes.length})
+              </Link>
+            )}
           </div>
           {notes.length ? (
-            <ul className="list">
-              {notes.map((note) => (
-                <li className="list-row" key={note.id}>
-                  <div className="list-row-main">
-                    <strong>{note.topic}</strong>
-                    <span>{note.text}</span>
-                    {note.sessionId && (
-                      <span className="note-origin">
-                        {(() => {
-                          const session = data.sessions.find((item) => item.id === note.sessionId);
-                          const group = data.groups.find((item) => item.id === session?.groupId);
-                          return session
-                            ? `Clase: ${group?.name ?? "Grupo"} · ${date(session.date)}`
-                            : "Creada desde una clase";
-                        })()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="list-row-value">
-                    <span>{date(note.date)}</span>
-                    <div className="inline-actions">
-                      <button className="text-button" onClick={() => onEditNote(note)}>
-                        Editar
-                      </button>
-                      <button className="text-button danger" onClick={() => onDeleteNote(note)}>
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <NoteList
+              data={data}
+              student={student}
+              notes={notes.slice(0, previewNotes)}
+              reload={reload}
+              preview
+            />
           ) : (
             <Empty title="Sin notas" text="Todavía no hay notas de seguimiento." />
           )}
@@ -135,7 +117,9 @@ export function StudentDetail({
             <h2>Resumen financiero</h2>
           </div>
           <div className="card-body">
-            <strong className="metric-value">{money(balance)}</strong>
+            <strong className="metric-value">
+              <Money value={balance} />
+            </strong>
             <p className="muted">Saldo pendiente en todos sus conceptos.</p>
           </div>
         </section>

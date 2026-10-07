@@ -1,7 +1,8 @@
 import type { Bootstrap } from "../../shared/api/contracts";
-import { money } from "../../shared/lib/format";
+import { date } from "../../shared/lib/format";
 import { useState } from "react";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
+import { Money } from "../../shared/ui/Money";
 import { PageHeader } from "../../shared/ui/PageHeader";
 export function ConfiguracionPage({
   data,
@@ -18,10 +19,7 @@ export function ConfiguracionPage({
   }
   return (
     <>
-      <PageHeader
-        title="Configuración"
-        help="Consulta los datos generales y parámetros operativos de la escuela."
-      />
+      <PageHeader help="Consulta los datos generales y parámetros operativos de la escuela." />
       <section className="card">
         <div className="card-body">
           <dl className="definition-grid">
@@ -35,11 +33,13 @@ export function ConfiguracionPage({
             </div>
             <div className="definition-item">
               <dt>Mensualidad general</dt>
-              <dd>{money(data.school.fee)}</dd>
+              <dd>
+                <Money value={data.school.fee} />
+              </dd>
             </div>
             <div className="definition-item">
               <dt>Fecha operativa</dt>
-              <dd>{data.demoDate}</dd>
+              <dd>{date(data.demoDate)}</dd>
             </div>
           </dl>
         </div>

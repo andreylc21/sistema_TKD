@@ -1,23 +1,13 @@
 import type { ReactNode } from "react";
-import type { Bootstrap, Charge, Order, Session } from "../../shared/api/contracts";
-import { date, money } from "../../shared/lib/format";
+import type { Bootstrap, Charge, Order } from "../../shared/api/contracts";
+import { date } from "../../shared/lib/format";
+import { paths } from "../../shared/lib/paths";
+import { Link } from "../../shared/ui/Link";
+import { Metric, Money } from "../../shared/ui/Money";
 import { PageHeader } from "../../shared/ui/PageHeader";
 import { chargePresentation, orderItemPending } from "../pagos/model/pagos.model";
-import type { PaymentsTarget } from "../pagos/PagosPage";
 
-export function InicioPage({
-  data,
-  onClass,
-  onClasses,
-  onPayments,
-  onStudent,
-}: {
-  data: Bootstrap;
-  onClass: (session: Session) => void;
-  onClasses: () => void;
-  onPayments: (target: PaymentsTarget) => void;
-  onStudent: (studentId: string) => void;
-}) {
+export function InicioPage({ data }: { data: Bootstrap }) {
   const today = data.sessions
     .filter((session) => session.date === data.demoDate && session.status !== "Cancelada")
     .sort((left, right) => left.time.localeCompare(right.time));
@@ -39,24 +29,23 @@ export function InicioPage({
   return (
     <>
       <PageHeader
-        title="Inicio"
         help="Muestra prioridades operativas y accesos directos a la clase, cargo, pedido o expediente correspondiente."
         context={`Fecha operativa: ${date(data.demoDate)}`}
       />
       <div className="summary-strip">
-        <Count label="Clases de hoy" value={today.length} />
-        <Count label="Cargos vencidos" value={overdue.length} />
-        <Count label="Próximos a pagar" value={upcoming.length} />
-        <Count label="Pedidos por completar" value={openOrders.length} />
+        <Metric label="Clases de hoy">{today.length}</Metric>
+        <Metric label="Cargos vencidos">{overdue.length}</Metric>
+        <Metric label="Próximos a pagar">{upcoming.length}</Metric>
+        <Metric label="Pedidos por completar">{openOrders.length}</Metric>
       </div>
       <div className="dashboard-grid spacer-top">
         <PriorityList
           title="Clases del día"
           empty="Sin clases programadas para hoy."
           action={
-            <button className="text-button" onClick={onClasses}>
+            <Link className="text-button" to={paths.clases()}>
               Ver clases por fecha
-            </button>
+            </Link>
           }
         >
           {today.slice(0, 4).map((session) => {
@@ -69,9 +58,9 @@ export function InicioPage({
                     {session.time} · {session.status} · Participantes: {session.attendance.length}
                   </span>
                 </div>
-                <button className="button secondary small" onClick={() => onClass(session)}>
+                <Link className="button secondary small" to={paths.sesion(session.id)}>
                   Abrir clase
-                </button>
+                </Link>
               </li>
             );
           })}
@@ -80,64 +69,39 @@ export function InicioPage({
           title="Cargos vencidos"
           empty="No hay cargos vencidos."
           action={
-            <button
-              className="text-button"
-              onClick={() => onPayments({ tab: "saldos", due: "Vencido" })}
-            >
+            <Link className="text-button" to={paths.pagos("saldos", "Vencido")}>
               Ver todos
-            </button>
+            </Link>
           }
         >
           {overdue.slice(0, 4).map(({ charge, state }) => (
-            <ChargeRow
-              key={charge.id}
-              data={data}
-              charge={charge}
-              balance={state.balance}
-              onPayment={() => onPayments({ tab: "saldos", chargeId: charge.id })}
-              onStudent={onStudent}
-            />
+            <ChargeRow key={charge.id} data={data} charge={charge} balance={state.balance} />
           ))}
         </PriorityList>
         <PriorityList
           title="Próximos a pagar"
           empty="No hay cargos próximos."
           action={
-            <button
-              className="text-button"
-              onClick={() => onPayments({ tab: "saldos", due: "Por vencer" })}
-            >
+            <Link className="text-button" to={paths.pagos("saldos", "Por vencer")}>
               Ver todos
-            </button>
+            </Link>
           }
         >
           {upcoming.slice(0, 4).map(({ charge, state }) => (
-            <ChargeRow
-              key={charge.id}
-              data={data}
-              charge={charge}
-              balance={state.balance}
-              onPayment={() => onPayments({ tab: "saldos", chargeId: charge.id })}
-              onStudent={onStudent}
-            />
+            <ChargeRow key={charge.id} data={data} charge={charge} balance={state.balance} />
           ))}
         </PriorityList>
         <PriorityList
           title="Pedidos por completar"
           empty="No hay recepciones ni entregas pendientes."
           action={
-            <button className="text-button" onClick={() => onPayments({ tab: "pedidos" })}>
+            <Link className="text-button" to={paths.pagos("pedidos")}>
               Revisar pedidos
-            </button>
+            </Link>
           }
         >
           {openOrders.slice(0, 4).map((order) => (
-            <OrderRow
-              key={order.id}
-              data={data}
-              order={order}
-              onOpen={() => onPayments({ tab: "pedidos", orderId: order.uuid })}
-            />
+            <OrderRow key={order.id} data={data} order={order} />
           ))}
         </PriorityList>
       </div>
@@ -145,14 +109,6 @@ export function InicioPage({
   );
 }
 
-function Count({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="summary-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
 function PriorityList({
   title,
   empty,
@@ -179,33 +135,29 @@ function ChargeRow({
   data,
   charge,
   balance,
-  onPayment,
-  onStudent,
 }: {
   data: Bootstrap;
   charge: Charge;
   balance: number;
-  onPayment: () => void;
-  onStudent: (id: string) => void;
 }) {
   const student = data.students.find((item) => item.id === charge.studentId);
   return (
     <li className="list-row">
       <div className="list-row-main">
-        <button className="text-button align-start" onClick={() => onStudent(charge.studentId)}>
+        <Link className="text-button align-start" to={paths.alumno(charge.studentId)}>
           {student?.name ?? "Alumno no disponible"}
-        </button>
+        </Link>
         <span>
-          {charge.concept} · {date(charge.due)} · Saldo {money(balance)}
+          {charge.concept} · {date(charge.due)} · Saldo <Money value={balance} />
         </span>
       </div>
-      <button className="button secondary small" onClick={onPayment}>
+      <Link className="button secondary small" to={paths.pagoNuevo("saldos", charge.id)}>
         Registrar pago
-      </button>
+      </Link>
     </li>
   );
 }
-function OrderRow({ data, order, onOpen }: { data: Bootstrap; order: Order; onOpen: () => void }) {
+function OrderRow({ data, order }: { data: Bootstrap; order: Order }) {
   const student = data.students.find((item) => item.id === order.studentId);
   const receive = order.items.reduce(
     (sum, item) => sum + (item.cancelled ? 0 : orderItemPending(item).receive),
@@ -225,9 +177,9 @@ function OrderRow({ data, order, onOpen }: { data: Bootstrap; order: Order; onOp
           Por recibir: {receive} · Por entregar: {deliver}
         </span>
       </div>
-      <button className="button secondary small" onClick={onOpen}>
+      <Link className="button secondary small" to={paths.pedido(order.uuid)}>
         Abrir pedido
-      </button>
+      </Link>
     </li>
   );
 }

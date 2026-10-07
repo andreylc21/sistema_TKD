@@ -1,17 +1,19 @@
 import { useState } from "react";
 import type { Bootstrap, Charge } from "../../../shared/api/contracts";
 import type { DueStatus, PaymentProgress } from "../../../shared/lib/format";
-import { date, money, paidFor } from "../../../shared/lib/format";
+import { date, paidFor } from "../../../shared/lib/format";
+import { Link } from "../../../shared/ui/Link";
+import { Metric, Money } from "../../../shared/ui/Money";
 import { Empty } from "../../../shared/ui/PageHeader";
-import { chargePresentation, getPendingCharges } from "../model/pagos.model";
+import { chargePresentation, dueTone, getPendingCharges, progressTone } from "../model/pagos.model";
 
 export function ChargesOverview({
   data,
-  onPayment,
+  paymentLink,
   initialDue = "",
 }: {
   data: Bootstrap;
-  onPayment?: (charge: Charge) => void;
+  paymentLink?: (charge: Charge) => string;
   initialDue?: DueStatus | "Por vencer" | "";
 }) {
   const [query, setQuery] = useState("");
@@ -38,15 +40,20 @@ export function ChargesOverview({
   return (
     <>
       <div className="summary-strip">
-        <Metric label="Dinero recibido" value={received} />
-        <Metric
-          label="Total de cargos"
-          value={data.charges.reduce((sum, charge) => sum + charge.total, 0)}
-        />
-        <Metric
-          label="Saldo pendiente"
-          value={pending.reduce((sum, charge) => sum + chargePresentation(charge, data).balance, 0)}
-        />
+        <Metric label="Dinero recibido">
+          <Money value={received} />
+        </Metric>
+        <Metric label="Total de cargos">
+          <Money value={data.charges.reduce((sum, charge) => sum + charge.total, 0)} />
+        </Metric>
+        <Metric label="Saldo pendiente">
+          <Money
+            value={pending.reduce(
+              (sum, charge) => sum + chargePresentation(charge, data).balance,
+              0,
+            )}
+          />
+        </Metric>
       </div>
       <div className="toolbar spacer-top">
         <div className="field grow">
@@ -97,12 +104,12 @@ export function ChargesOverview({
               <tr>
                 <th>Alumno / concepto</th>
                 <th>Fecha límite</th>
-                <th>Total</th>
-                <th>Recibido</th>
-                <th>Saldo</th>
+                <th className="num">Total</th>
+                <th className="num">Recibido</th>
+                <th className="num">Saldo</th>
                 <th>Avance</th>
                 <th>Vencimiento</th>
-                {onPayment && (
+                {paymentLink && (
                   <th>
                     <span className="sr-only">Acción</span>
                   </th>
@@ -118,39 +125,36 @@ export function ChargesOverview({
                       <strong>{studentName(data, charge.studentId)}</strong>
                       <span>{charge.concept}</span>
                     </td>
-                    <td>{date(charge.due)}</td>
-                    <td className="num">{money(charge.total)}</td>
-                    <td className="num">{money(state.received)}</td>
+                    <td className="nowrap">{date(charge.due)}</td>
                     <td className="num">
-                      <strong>{money(state.balance)}</strong>
+                      <Money value={charge.total} />
+                    </td>
+                    <td className="num">
+                      <Money value={state.received} />
+                    </td>
+                    <td className="num">
+                      <strong>
+                        <Money value={state.balance} />
+                      </strong>
                     </td>
                     <td>
-                      <span
-                        className={`badge ${state.progress === "Pagado" ? "success" : state.progress === "Pago parcial" ? "info" : "light"}`}
-                      >
+                      <span className={`badge ${progressTone(state.progress)}`}>
                         {state.progress}
                       </span>
                     </td>
                     <td>
                       {state.due ? (
-                        <span
-                          className={`badge ${state.due === "Vencido" ? "danger" : state.due === "Próximo a pagar" || state.due === "Vence hoy" ? "warning" : "light"}`}
-                        >
-                          {state.due}
-                        </span>
+                        <span className={`badge ${dueTone(state.due)}`}>{state.due}</span>
                       ) : (
                         <span className="muted">Sin alerta</span>
                       )}
                     </td>
-                    {onPayment && (
+                    {paymentLink && (
                       <td>
                         {state.balance > 0 && (
-                          <button
-                            className="button secondary small"
-                            onClick={() => onPayment(charge)}
-                          >
+                          <Link className="button secondary small" to={paymentLink(charge)}>
                             Registrar pago
-                          </button>
+                          </Link>
                         )}
                       </td>
                     )}
@@ -172,13 +176,4 @@ export function ChargesOverview({
 
 function studentName(data: Bootstrap, studentId: string) {
   return data.students.find((student) => student.id === studentId)?.name ?? "Alumno no disponible";
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="summary-item">
-      <span>{label}</span>
-      <strong>{money(value)}</strong>
-    </div>
-  );
 }

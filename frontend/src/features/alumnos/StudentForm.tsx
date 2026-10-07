@@ -237,8 +237,8 @@ export function StudentForm({
         <input name="healthConsent" type="checkbox" defaultChecked={initial?.healthConsent} />{" "}
         Autorización para tratar esta información de salud
       </label>
-      <div className="dialog-actions full-span">
-        <button type="button" className="button secondary" data-dialog-close onClick={onCancel}>
+      <div className="form-actions full-span">
+        <button type="button" className="button secondary" onClick={onCancel}>
           Cancelar
         </button>
         <button className="button" disabled={busy}>

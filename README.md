@@ -61,16 +61,22 @@ SEED_DEMO=false ./tkd-server
 - Pedidos y artículos con avance independiente de solicitado, recibido, entregado y pagado.
 - Generación idempotente de mensualidades por periodo; el día 31 cae en el último día de febrero y vuelve al 31 en marzo.
 - Versionado optimista para evitar sobrescrituras silenciosas.
-- Inicio, calendario y reportes alimentados por los registros persistidos principales; los exámenes históricos permanecen como antecedente visual de solo lectura.
+- Inicio y reportes alimentados por los registros persistidos principales; los exámenes históricos permanecen como antecedente visual de solo lectura. Las sesiones por fecha se consultan en Inicio y en Clases › Clases del día.
 - Clases del día seleccionables por fecha, separadas de los grupos y horarios recurrentes; comentarios de asistencia confirmados y notas de seguimiento vinculadas al expediente.
 - Cobros con avance de pago y vencimiento independientes, filtros por cargo y registro de pago guiado por alumno, saldo actual y saldo resultante.
 - Recepción y entrega de pedidos por cantidad, más operaciones globales atómicas que nunca entregan mercancía no recibida.
+- Navegación con URL propia por pantalla (History API, sin dependencias): el botón "Atrás" del navegador funciona, cada enlace puede abrirse en otra pestaña y los accesos de Inicio llevan a la clase, cobro, pedido o expediente con su ruta padre correcta.
 
 ## Criterios de interfaz
 
 - La interfaz carga localmente Noto Sans variable (pesos 400–700). SUIT se evaluó y se descartó porque el archivo oficial revisado no cubría los caracteres españoles requeridos; la licencia de Noto Sans se conserva junto al WOFF2 en `frontend/public/fonts/`.
 - “Comentario de asistencia” pertenece a un alumno en una clase concreta; “nota de seguimiento” pertenece al expediente y puede conservar el origen de clase; “comentario del pago” no sustituye el motivo obligatorio de corrección o anulación.
-- La ayuda general aparece junto al título. Fecha, horario, alumno, pedido, periodo, estado y restricciones necesarias permanecen visibles en su contexto operativo.
+- El título de cada pantalla es el único `<h1>` y vive en la barra superior, junto al nombre de la escuela y la fecha operativa; al cambiar de pantalla recibe el foco. En pantallas internas se antecede de la ruta (`Alumnos › María Pérez › Notas`), donde cada nivel salvo el actual es un enlace; en móvil se muestra sólo el nivel anterior.
+- En el contenido quedan la ayuda "?", el contexto y las acciones. Fecha, horario, alumno, pedido, periodo, estado y restricciones necesarias permanecen visibles en su contexto operativo.
+- Los formularios completos (alumno, nota, grupo, pago y pedido) son pantallas con ruta propia; los diálogos se reservan para confirmaciones y acciones cortas. Al salir de un formulario con cambios sin guardar se pide confirmación, y al guardar se vuelve a la pantalla que lo abrió con un aviso del resultado.
+- El expediente muestra las tres notas más recientes recortadas a tres líneas; "Ver todas (N)" abre la pantalla completa de notas con editar y eliminar.
+- Registrar pago lista sólo a los alumnos con saldo pendiente, en orden alfabético y con su saldo.
+- Los importes usan `Money` (cifras de ancho fijo, sin saltos de línea) y sus columnas la clase `num`, alineadas a la derecha junto con su encabezado. Las fechas usan el mismo formato en todo el sistema. Hasta 760 px las tablas financieras se desplazan en horizontal con la primera columna fija.
 - Inicio ofrece accesos al registro concreto para pasar lista, registrar un pago, revisar un pedido o abrir el expediente, sin prometer funciones que no existen.
 
 ## Verificación
@@ -106,7 +112,7 @@ En el frontend, `npm run verify` ejecuta en orden contrato, Prettier, ESLint, Ty
 
 ## Heurísticas de Nielsen aplicadas
 
-La interfaz muestra estados de carga, éxito y error; usa el mismo vocabulario en navegación y contenido; conserva datos de formularios ante un fallo; solicita confirmación para anulaciones y eliminaciones; previene sobrepagos y cantidades imposibles; permite volver desde detalles; evita repetir títulos en la barra global; muestra instrucciones breves en pagos manuales; y ofrece estados vacíos y mensajes comprensibles. Los diálogos administran foco, Escape, recorrido contenido de Tab y Shift+Tab, y retorno al control que los abrió.
+La interfaz muestra estados de carga, éxito y error; usa el mismo vocabulario en navegación y contenido; conserva datos de formularios ante un fallo; solicita confirmación para anulaciones y eliminaciones; previene sobrepagos y cantidades imposibles; permite volver con la ruta del encabezado o el botón "Atrás" del navegador; muestra el título de cada pantalla una sola vez, en la barra global; muestra instrucciones breves en pagos manuales; y ofrece estados vacíos y mensajes comprensibles. Los diálogos administran foco, Escape, recorrido contenido de Tab y Shift+Tab, y retorno al control que los abrió; los formularios en pantalla conservan sus datos y su `Idempotency-Key` ante un error.
 
 ## Decisiones del entorno local
 

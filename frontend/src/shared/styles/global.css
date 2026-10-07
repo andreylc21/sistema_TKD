@@ -173,6 +173,7 @@ select:focus-visible,
   min-height: 48px;
   width: 100%;
   display: flex;
+  text-decoration: none;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
@@ -234,12 +235,56 @@ select:focus-visible,
 
 .topbar-title {
   min-width: 0;
+  padding: 10px 0;
 }
-.topbar-title > * {
+.topbar-school {
   display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
-.topbar-title strong {
-  font-size: 1rem;
+.topbar-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+.topbar-heading h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.topbar-heading h1:focus {
+  outline: none;
+}
+.topbar-heading h1:focus-visible {
+  outline: 3px solid rgba(33, 63, 153, 0.35);
+  outline-offset: 3px;
+}
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.breadcrumbs li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--muted);
+}
+.breadcrumbs a {
+  color: var(--primary-dark);
+  font-weight: 650;
+  text-underline-offset: 3px;
+}
+.breadcrumbs li > span {
+  font-size: 1.1rem;
 }
 .eyebrow {
   color: var(--primary);
@@ -248,6 +293,7 @@ select:focus-visible,
   font-weight: 700;
 }
 .topbar-meta {
+  flex: 0 0 auto;
   margin-left: auto;
   display: flex;
   align-items: center;
@@ -287,21 +333,15 @@ main {
 
 .page-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px 24px;
   margin-bottom: 24px;
-}
-.page-header h1 {
-  margin: 0;
-  font-size: clamp(1.7rem, 2.4vw, 2rem);
-  line-height: 1.15;
-  letter-spacing: -0.015em;
 }
 .page-header p,
 .page-context {
   max-width: 650px;
-  margin: 7px 0 0;
+  margin: 0;
   color: var(--muted);
 }
 .page-heading {
@@ -353,6 +393,7 @@ main {
 .button {
   min-height: 44px;
   display: inline-flex;
+  text-decoration: none;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -526,11 +567,11 @@ main {
   min-width: 0;
   flex: 1;
 }
-.list-row-main strong,
-.list-row-main span {
+.list-row-main > strong,
+.list-row-main > span {
   display: block;
 }
-.list-row-main span {
+.list-row-main > span {
   margin-top: 2px;
   color: var(--muted);
   font-size: 0.82rem;
@@ -538,17 +579,19 @@ main {
 .list-row-value {
   text-align: right;
 }
-.list-row-value strong,
-.list-row-value span {
+.list-row-value > strong,
+.list-row-value > span {
   display: block;
 }
-.list-row-value span {
+.list-row-value > span {
   color: var(--muted);
   font-size: 0.78rem;
 }
 
 .text-button {
   min-height: 40px;
+  display: inline-flex;
+  align-items: center;
   border: 0;
   padding: 7px 4px;
   color: var(--primary-dark);
@@ -760,10 +803,13 @@ textarea:focus {
 }
 
 .table-wrap {
+  position: relative;
   width: 100%;
   overflow-x: auto;
 }
+/* Posicionados para que el texto sr-only de las cabeceras no ensanche la página al desplazar. */
 .table-surface {
+  position: relative;
   overflow-x: auto;
   overflow-y: hidden;
   border: 1px solid var(--line);
@@ -779,6 +825,7 @@ th {
   color: var(--muted);
   background: #eef2f7;
   text-align: left;
+  white-space: nowrap;
   font-size: 0.75rem;
   letter-spacing: 0.01em;
 }
@@ -797,15 +844,19 @@ tbody tr:hover {
 tbody tr:last-child td {
   border-bottom: 0;
 }
+.money,
+.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .num {
   text-align: right;
-  font-variant-numeric: tabular-nums;
 }
-.primary-cell strong,
-.primary-cell span {
+.primary-cell > strong,
+.primary-cell > span {
   display: block;
 }
-.primary-cell span {
+.primary-cell > span {
   margin-top: 3px;
   color: var(--muted);
   font-size: 0.78rem;
@@ -942,89 +993,6 @@ tbody tr:last-child td {
 .group-stats strong {
   display: block;
   font-size: 1.15rem;
-}
-
-.calendar-toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.calendar-title {
-  margin: 0 auto 0 6px;
-  font-size: 1rem;
-}
-.calendar-day {
-  min-height: 230px;
-  border-left: 1px solid var(--line);
-}
-.calendar-day:first-child {
-  border-left: 0;
-}
-.calendar-day-head {
-  padding: 11px;
-  border-bottom: 1px solid var(--line);
-  background: #eef2f7;
-}
-.calendar-day-head strong,
-.calendar-day-head span {
-  display: block;
-}
-.calendar-day-head strong {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-}
-.calendar-day-head span {
-  color: var(--muted);
-  font-size: 0.76rem;
-}
-.calendar-events {
-  display: grid;
-  gap: 8px;
-  padding: 9px;
-}
-.calendar-event {
-  min-height: 44px;
-  width: 100%;
-  border: 1px solid #b9c6d7;
-  border-radius: 5px;
-  padding: 9px;
-  text-align: left;
-  color: var(--ink);
-  background: #edf2f8;
-  cursor: pointer;
-}
-.calendar-event[role="group"] {
-  cursor: default;
-}
-.calendar-event strong,
-.calendar-event span {
-  display: block;
-}
-.calendar-event strong {
-  font-size: 0.85rem;
-}
-.calendar-event span {
-  margin-top: 3px;
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-}
-.calendar-event.cancelled {
-  border-style: dashed;
-  text-decoration: line-through;
-  background: var(--surface-alt);
-}
-.calendar-event.exam {
-  color: #fff;
-  background: var(--primary);
-  border-color: var(--primary-dark);
-}
-.calendar-event.exam span {
-  color: #edf1ff;
-}
-.calendar-mobile {
-  display: none;
 }
 
 .progress-track {
@@ -1253,9 +1221,6 @@ label span,
   color: var(--muted);
   font-weight: 400;
 }
-.detail-back {
-  margin-bottom: 18px;
-}
 fieldset {
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -1296,11 +1261,11 @@ legend {
 .summary-item:first-child {
   border-left: 0;
 }
-.summary-item span,
-.summary-item strong {
+.summary-item > span,
+.summary-item > strong {
   display: block;
 }
-.summary-item span {
+.summary-item > span {
   color: var(--muted);
   font-size: 0.82rem;
 }
@@ -1347,11 +1312,11 @@ legend {
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
-.payment-summary span,
-.payment-summary strong {
+.payment-summary > div > span,
+.payment-summary > div > strong {
   display: block;
 }
-.payment-summary span {
+.payment-summary > div > span {
   color: var(--muted);
   font-size: 0.78rem;
 }
@@ -1371,6 +1336,35 @@ legend {
 .long-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.list-row-main > .note-text {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.list-row-main > .note-text.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.form-screen {
+  max-width: 760px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.form-screen > .discard-warning {
+  margin: -24px -24px 20px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.form-screen > .form-error {
+  margin-bottom: 18px;
+}
+main > .success-message {
+  margin-bottom: 18px;
 }
 .quantity-action {
   display: grid;
@@ -1406,16 +1400,6 @@ legend {
   }
   .grid.cols-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 1000px) {
-  .calendar-desktop {
-    display: none;
-  }
-  .calendar-mobile {
-    display: grid;
-    gap: 10px;
   }
 }
 
@@ -1467,6 +1451,13 @@ legend {
   .topbar-date {
     display: none;
   }
+  .topbar-heading h1 {
+    font-size: 1.15rem;
+  }
+  /* En pantallas angostas la ruta se reduce al nivel anterior para no ocupar varias líneas. */
+  .breadcrumbs li:not(:last-child) {
+    display: none;
+  }
   main {
     padding: 24px 16px 48px;
   }
@@ -1511,6 +1502,7 @@ legend {
     align-items: stretch;
   }
   .list-tools {
+    flex-wrap: wrap;
     align-items: end;
   }
   .list-tools .field {
@@ -1562,11 +1554,6 @@ legend {
     width: 100%;
     text-align: left;
   }
-  .calendar-title {
-    order: -1;
-    width: 100%;
-    margin: 0 0 5px;
-  }
   .section-intro,
   .period-bar,
   .context-note {
@@ -1600,8 +1587,11 @@ legend {
 }
 
 @media (max-width: 430px) {
-  .page-header h1 {
-    font-size: 1.65rem;
+  .form-screen {
+    padding: 18px 14px;
+  }
+  .form-screen > .discard-warning {
+    margin: -18px -14px 18px;
   }
   .header-actions {
     width: 100%;

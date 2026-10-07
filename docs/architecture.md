@@ -7,9 +7,9 @@ El contrato es la fuente de verdad de transporte, no de reglas de negocio. OpenA
 ## Dependencias
 
 - `frontend/src/features/*` consume exclusivamente `shared/api`, `shared/ui`, `shared/lib` y `shared/layout`.
-- `frontend/src/app` compone módulos y mantiene únicamente navegación, sesión y carga inicial.
+- `frontend/src/app` compone módulos y mantiene únicamente navegación, sesión y carga inicial. `routes.ts` traduce la URL a una pantalla y `App.tsx` decide la página, la opción del menú y las migas de pan; las URL se construyen siempre con `shared/lib/paths.ts`.
 - Cada feature expone operaciones HTTP tipadas desde su carpeta `api/`; ESLint impide que páginas y componentes importen directamente el cliente de bajo nivel.
-- Las páginas seleccionan vistas y coordinan diálogos. Formularios, tablas y detalles viven en componentes con una responsabilidad reconocible.
+- Las páginas seleccionan vistas, coordinan diálogos de confirmación y envuelven los formularios completos en `FormScreen`. Formularios, tablas y detalles viven en componentes con una responsabilidad reconocible.
 - Los handlers HTTP traducen el contrato y delegan reglas reutilizables a los módulos de dominio.
 - Los módulos de dominio no dependen de Gin.
 - PostgreSQL impone relaciones, unicidad, aislamiento por escuela e invariantes que no deben depender sólo de la interfaz.

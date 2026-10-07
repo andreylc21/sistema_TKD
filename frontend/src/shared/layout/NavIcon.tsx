@@ -35,12 +35,6 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M7 9.5V15c0 1.7 2.2 3 5 3s5-1.3 5-3V9.5M20 7v6" />
     </>
   ),
-  calendario: (
-    <>
-      <rect x="3" y="4" width="18" height="17" rx="2" />
-      <path d="M8 2v4M16 2v4M3 9h18M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01" />
-    </>
-  ),
   reportes: (
     <>
       <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />

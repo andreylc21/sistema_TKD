@@ -1,22 +1,22 @@
 import { useRef, useState, type FormEvent } from "react";
 import type { Bootstrap, Group } from "../../shared/api/contracts";
+import { navigate } from "../../shared/lib/navigation";
+import { paths } from "../../shared/lib/paths";
 import { Dialog } from "../../shared/ui/Dialog";
+import { Link } from "../../shared/ui/Link";
 import { Notice } from "../../shared/ui/PageHeader";
-import { assignStudent, createSession, updateGroup } from "./api/clases.api";
-import { GroupForm } from "./components/GroupForm";
+import { assignStudent, createSession } from "./api/clases.api";
 
-type DialogName = "assign" | "session" | "edit" | null;
+type DialogName = "assign" | "session" | null;
 
 export function GroupActions({
   group,
   data,
   reload,
-  onSession,
 }: {
   group: Group;
   data: Bootstrap;
   reload: () => Promise<void>;
-  onSession: (sessionId: string) => void;
 }) {
   const [dialog, setDialog] = useState<DialogName>(null);
   const [error, setError] = useState("");
@@ -56,29 +56,18 @@ export function GroupActions({
       sessionKey.current = crypto.randomUUID();
       setDialog(null);
       await reload();
-      onSession(created.id);
+      navigate(paths.sesion(created.id));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo programar la clase.");
-    }
-  }
-
-  async function editGroup(body: Parameters<typeof updateGroup>[1]) {
-    setError("");
-    try {
-      await updateGroup(group.id, body);
-      setDialog(null);
-      await reload();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo actualizar el grupo.");
     }
   }
 
   return (
     <>
       <div className="inline-actions group-actions">
-        <button className="text-button" onClick={() => setDialog("edit")}>
+        <Link className="text-button" to={paths.grupoEditar(group.id)}>
           Editar grupo
-        </button>
+        </Link>
         <button className="text-button" onClick={() => setDialog("assign")}>
           Asignar alumno
         </button>
@@ -172,12 +161,6 @@ export function GroupActions({
               <button className="button">Programar y abrir</button>
             </div>
           </form>
-        </Dialog>
-      )}
-      {dialog === "edit" && (
-        <Dialog title={`Editar ${group.name}`} onClose={() => setDialog(null)}>
-          {error && <Notice kind="error">{error}</Notice>}
-          <GroupForm initial={group} onSubmit={editGroup} onCancel={() => setDialog(null)} />
         </Dialog>
       )}
     </>

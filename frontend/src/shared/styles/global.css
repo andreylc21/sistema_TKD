@@ -1650,3 +1650,8 @@ main > .success-message {
   margin: 0;
   font-weight: 600;
 }
+
+.attendance-control { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.row-feedback { font-size: 0.875rem; }
+.row-feedback.ok { color: #1C6539; }
+.row-feedback.error { color: var(--danger-dark); }

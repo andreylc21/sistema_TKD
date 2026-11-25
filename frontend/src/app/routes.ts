@@ -1,5 +1,3 @@
-import type { PaymentsTab } from "../shared/lib/paths";
-
 // Interpreta las URL que construye `shared/lib/paths`. Es puro para poder probarlo sin navegador.
 export type Route =
   | { name: "inicio" }
@@ -15,11 +13,13 @@ export type Route =
   | { name: "grupo-editar"; groupId: string }
   | { name: "sesion"; sessionId: string }
   | { name: "sesion-nota"; sessionId: string; studentId: string }
-  | { name: "pagos"; tab: PaymentsTab; due?: string }
-  | { name: "pago-nuevo"; tab: Exclude<PaymentsTab, "pedidos">; chargeId?: string }
+  | { name: "pagos"; due?: string; q?: string; progress?: string; all?: boolean }
+  | { name: "pago-nuevo"; chargeId?: string; studentId?: string }
+  | { name: "pedidos" }
   | { name: "pedido-nuevo" }
   | { name: "pedido"; orderId: string }
   | { name: "examenes" }
+  | { name: "examen-nuevo" }
   | { name: "reportes" }
   | { name: "configuracion" }
   | { name: "no-encontrada" };
@@ -57,21 +57,36 @@ export function matchRoute(url: string): Route {
       }
       break;
     case "pagos":
-      if (size === 1) return { name: "pagos", tab: "cobros" };
-      if (size === 2 && a === "registrar-pago")
-        return { name: "pago-nuevo", tab: "cobros", chargeId: param("cargo") };
-      if (a === "saldos") {
-        if (size === 2) return { name: "pagos", tab: "saldos", due: param("vencimiento") };
-        if (size === 3 && b === "registrar-pago")
-          return { name: "pago-nuevo", tab: "saldos", chargeId: param("cargo") };
-      }
+      // Las URL antiguas de "saldos" siguen abriendo la lista de cobros.
+      if (size === 1 || (a === "saldos" && size === 2))
+        return {
+          name: "pagos",
+          due: param("vencimiento"),
+          q: param("q"),
+          progress: param("avance"),
+          ...(param("todos") === "1" ? { all: true } : {}),
+        };
+      if (
+        (size === 2 && a === "registrar-pago") ||
+        (size === 3 && a === "saldos" && b === "registrar-pago")
+      )
+        return { name: "pago-nuevo", chargeId: param("cargo"), studentId: param("alumno") };
+      // Los pedidos ya no cuelgan de Pagos; estas rutas antiguas siguen funcionando.
       if (a === "pedidos") {
-        if (size === 2) return { name: "pagos", tab: "pedidos" };
+        if (size === 2) return { name: "pedidos" };
         if (size === 3)
           return b === "nuevo" ? { name: "pedido-nuevo" } : { name: "pedido", orderId: b };
       }
       break;
+    case "pedidos":
+      if (size === 1) return { name: "pedidos" };
+      if (size === 2)
+        return a === "nuevo" ? { name: "pedido-nuevo" } : { name: "pedido", orderId: a };
+      break;
     case "examenes":
+      if (size === 1) return { name: "examenes" };
+      if (size === 2 && a === "nuevo") return { name: "examen-nuevo" };
+      break;
     case "reportes":
     case "configuracion":
       if (size === 1) return { name: section };

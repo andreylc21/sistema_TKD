@@ -389,10 +389,148 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/exams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createExam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exams/{id}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enrollExam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exams/{id}/entries/{entry}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["removeExamEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exams/{id}/entries/{entry}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setExamResult"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["moveStudent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["keepStudent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exams/{id}/entries/{entry}/exception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["authorizeExamPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ExamWrite: {
+            /** @enum {string} */
+            kind: "partial" | "black";
+            /** Format: date */
+            date: string;
+            /** @description Costo por alumno */
+            fee: string;
+            /**
+             * Format: date
+             * @description Fecha límite de pago; por omisión un mes antes del final de cinta negra y dos semanas antes de un parcial
+             */
+            paymentDeadline?: string;
+        };
+        ExamEnrollWrite: {
+            /** Format: uuid */
+            studentId: string;
+            /** @description Obligatorio en el examen final si el alumno aún no cumple los requisitos */
+            reason?: string;
+        };
+        ExamExceptionWrite: {
+            reason: string;
+        };
+        ExamResultWrite: {
+            /** @enum {string} */
+            result: "passed" | "failed";
+        };
         Error: {
             error: string;
             code?: string;
@@ -458,12 +596,31 @@ export interface components {
         };
         GroupWrite: {
             name: string;
-            days: ("Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado")[];
+            days: ("Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado" | "Domingo")[];
             /** Format: time */
             start: string;
             /** Format: time */
             end: string;
+            /** @description Edad mínima del perfil del grupo; opcional */
+            minAge?: number | null;
+            /** @description Edad máxima del perfil del grupo; opcional */
+            maxAge?: number | null;
             version?: number;
+        };
+        MoveStudentWrite: {
+            /** Format: uuid */
+            studentId: string;
+            /**
+             * Format: uuid
+             * @description Grupo destino; si se omite
+             */
+            toGroupId?: string;
+            /** Format: date */
+            date: string;
+        };
+        KeepStudentWrite: {
+            /** Format: uuid */
+            studentId: string;
         };
         AssignmentWrite: {
             /** Format: uuid */
@@ -542,6 +699,15 @@ export interface components {
             /** Format: date */
             dueDate: string;
             items: components["schemas"]["OrderItemWrite"][];
+            /** @description Si se envía, registra el pago completo de todos los artículos al crear el pedido */
+            payment?: {
+                /** Format: date */
+                date: string;
+                /** @enum {string} */
+                method?: "Efectivo" | "Transferencia" | "Tarjeta" | "Otro" | "";
+            };
+            /** @description Marca todos los artículos como recibidos y entregados al crear el pedido */
+            delivered?: boolean;
         };
         OrderProgressWrite: {
             requested: boolean;
@@ -1312,6 +1478,288 @@ export interface operations {
                 content?: never;
             };
             409: components["responses"]["Conflict"];
+        };
+    };
+    createExam: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+                "Idempotency-Key": components["parameters"]["Idempotency"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamWrite"];
+            };
+        };
+        responses: {
+            /** @description Reintento idempotente del alta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Examen programado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceCreated"];
+                };
+            };
+            /** @description Datos inválidos */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    enrollExam: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamEnrollWrite"];
+            };
+        };
+        responses: {
+            /** @description Alumno inscrito y cobro generado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceCreated"];
+                };
+            };
+            /** @description Alumno no elegible o motivo requerido */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Examen no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ya inscrito */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeExamEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+                entry: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inscripción retirada y cobro cancelado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ya tiene resultado o el cobro tiene pagos */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setExamResult: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+                entry: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamResultWrite"];
+            };
+        };
+        responses: {
+            /** @description Resultado guardado; si aprobó */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resultado o grado inválido */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resultado ya registrado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    moveStudent: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveStudentWrite"];
+            };
+        };
+        responses: {
+            /** @description Alumno retirado del grupo y */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El alumno no está en el grupo */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    keepStudent: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeepStudentWrite"];
+            };
+        };
+        responses: {
+            /** @description Aviso de edad aceptado para este alumno */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El alumno no está en el grupo */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    authorizeExamPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+                entry: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamExceptionWrite"];
+            };
+        };
+        responses: {
+            /** @description Excepción de pago registrada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Motivo requerido */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Inscripción no encontrada o ya resuelta */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
 }

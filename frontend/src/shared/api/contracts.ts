@@ -44,7 +44,11 @@ export type Group = {
   name: string;
   days: string[];
   time: string;
+  minAge: number | null;
+  maxAge: number | null;
   students: string[];
+  /** Alumnos fuera del perfil de edad que la maestra decidió mantener en el grupo. */
+  kept: string[];
   version: number;
 };
 export type Attendance = {
@@ -106,6 +110,37 @@ export type Order = {
   status: string;
   version: number;
 };
+export type ExamEntry = {
+  id: string;
+  studentId: string;
+  gradeFrom: string;
+  gradeTo: string | null;
+  result: "pending" | "passed" | "failed";
+  reason: string;
+  chargeId: string;
+  /** Motivo con que la maestra autorizó continuar sin el pago; vacío si no hay excepción. */
+  exception: string;
+  owed: number;
+  total: number;
+};
+export type Exam = {
+  id: string;
+  kind: "partial" | "black";
+  date: string;
+  fee: number;
+  paymentDeadline: string;
+  entries: ExamEntry[];
+};
+export type ExamProgress = {
+  target: number;
+  track: "poom" | "dan";
+  partials: number;
+  required: number;
+  months: number | null;
+  minMonths: number;
+  ready: boolean;
+  missing: string[];
+};
 export type Bootstrap = {
   school: { name: string; owner: string; fee: number };
   demoDate: string;
@@ -119,6 +154,8 @@ export type Bootstrap = {
   charges: Charge[];
   payments: Payment[];
   orders: Order[];
+  exams: Exam[];
+  examProgress: Record<string, ExamProgress>;
 };
 
 // Los DTO de escritura vienen del contrato OpenAPI. Si el contrato cambia,
@@ -129,6 +166,8 @@ export type StudentWrite = components["schemas"]["StudentWrite"];
 export type StudentStatusWrite = components["schemas"]["StudentStatusWrite"];
 export type NoteWrite = components["schemas"]["NoteWrite"];
 export type GroupWrite = components["schemas"]["GroupWrite"];
+export type MoveStudentWrite = components["schemas"]["MoveStudentWrite"];
+export type KeepStudentWrite = components["schemas"]["KeepStudentWrite"];
 export type AssignmentWrite = components["schemas"]["AssignmentWrite"];
 export type ParticipantWrite = components["schemas"]["ParticipantWrite"];
 export type SessionWrite = components["schemas"]["SessionWrite"];
@@ -137,6 +176,10 @@ export type AttendanceWrite = components["schemas"]["AttendanceWrite"];
 export type PaymentWrite = components["schemas"]["PaymentWrite"];
 export type VoidPaymentWrite = components["schemas"]["VoidPaymentWrite"];
 export type DiscountWrite = components["schemas"]["DiscountWrite"];
+export type ExamWrite = components["schemas"]["ExamWrite"];
+export type ExamEnrollWrite = components["schemas"]["ExamEnrollWrite"];
+export type ExamExceptionWrite = components["schemas"]["ExamExceptionWrite"];
+export type ExamResultWrite = components["schemas"]["ExamResultWrite"];
 export type OrderWrite = components["schemas"]["OrderWrite"];
 export type OrderProgressWrite = components["schemas"]["OrderProgressWrite"];
 export type OrderBulkProgressWrite = components["schemas"]["OrderBulkProgressWrite"];

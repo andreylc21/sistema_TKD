@@ -45,6 +45,34 @@ components:
       description: La versión cambió o la operación contradice el estado actual.
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
+    ExamWrite:
+      type: object
+      additionalProperties: false
+      required: [kind,date,fee]
+      properties:
+        kind: { type: string, enum: [partial, black] }
+        date: { type: string, format: date }
+        fee: { type: string, description: Costo por alumno, por ejemplo 350.00 }
+        paymentDeadline: { type: string, format: date, description: Fecha límite de pago; por omisión un mes antes del final de cinta negra y dos semanas antes de un parcial }
+    ExamEnrollWrite:
+      type: object
+      additionalProperties: false
+      required: [studentId]
+      properties:
+        studentId: { type: string, format: uuid }
+        reason: { type: string, description: Obligatorio en el examen final si el alumno aún no cumple los requisitos }
+    ExamExceptionWrite:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1 }
+    ExamResultWrite:
+      type: object
+      additionalProperties: false
+      required: [result]
+      properties:
+        result: { type: string, enum: [passed, failed] }
     Error:
       type: object
       required: [error]
@@ -115,10 +143,26 @@ components:
       required: [name,days,start,end]
       properties:
         name: { type: string, minLength: 1 }
-        days: { type: array, minItems: 1, uniqueItems: true, items: { type: string, enum: [Lunes,Martes,Miércoles,Jueves,Viernes,Sábado] } }
+        days: { type: array, minItems: 1, uniqueItems: true, items: { type: string, enum: [Lunes,Martes,Miércoles,Jueves,Viernes,Sábado,Domingo] } }
         start: { type: string, format: time }
         end: { type: string, format: time }
+        minAge: { type: integer, minimum: 0, nullable: true, description: Edad mínima del perfil del grupo; opcional }
+        maxAge: { type: integer, minimum: 0, nullable: true, description: Edad máxima del perfil del grupo; opcional }
         version: { type: integer, minimum: 1 }
+    MoveStudentWrite:
+      type: object
+      additionalProperties: false
+      required: [studentId,date]
+      properties:
+        studentId: { type: string, format: uuid }
+        toGroupId: { type: string, format: uuid, description: Grupo destino; si se omite, sólo se retira al alumno }
+        date: { type: string, format: date }
+    KeepStudentWrite:
+      type: object
+      additionalProperties: false
+      required: [studentId]
+      properties:
+        studentId: { type: string, format: uuid }
     AssignmentWrite:
       type: object
       additionalProperties: false
@@ -203,6 +247,15 @@ components:
         studentId: { type: string, format: uuid }
         dueDate: { type: string, format: date }
         items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/OrderItemWrite' } }
+        payment:
+          type: object
+          additionalProperties: false
+          required: [date]
+          description: Si se envía, registra el pago completo de todos los artículos al crear el pedido
+          properties:
+            date: { type: string, format: date }
+            method: { type: string, enum: [Efectivo,Transferencia,Tarjeta,Otro,''] }
+        delivered: { type: boolean, description: Marca todos los artículos como recibidos y entregados al crear el pedido }
     OrderProgressWrite:
       type: object
       additionalProperties: false
@@ -294,3 +347,17 @@ paths:
     post: { operationId: updateOrderProgressBulk, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderBulkProgressWrite' } } } }, responses: { '204': { description: Todos los artículos activos avanzaron atómicamente o el reintento ya había sido aplicado }, '400': { description: Modo, lista o cantidades inválidas }, '404': { description: Pedido no encontrado en la escuela }, '409': { $ref: '#/components/responses/Conflict' } } }
   /order-items/{id}:
     put: { operationId: updateOrderProgress, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderProgressWrite' } } } }, responses: { '204': { description: Avance actualizado }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /exams:
+    post: { operationId: createExam, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamWrite' } } } }, responses: { '201': { description: Examen programado, content: { application/json: { schema: { $ref: '#/components/schemas/ResourceCreated' } } } }, '200': { description: Reintento idempotente del alta }, '400': { description: Datos inválidos } } }
+  /exams/{id}/entries:
+    post: { operationId: enrollExam, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamEnrollWrite' } } } }, responses: { '201': { description: Alumno inscrito y cobro generado, content: { application/json: { schema: { $ref: '#/components/schemas/ResourceCreated' } } } }, '400': { description: Alumno no elegible o motivo requerido }, '404': { description: Examen no encontrado }, '409': { description: Ya inscrito } } }
+  /exams/{id}/entries/{entry}:
+    delete: { operationId: removeExamEntry, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ name: entry, in: path, required: true, schema: { type: string, format: uuid } },{ $ref: '#/components/parameters/Csrf' }], responses: { '204': { description: Inscripción retirada y cobro cancelado }, '404': { description: No encontrada }, '409': { description: Ya tiene resultado o el cobro tiene pagos } } }
+  /exams/{id}/entries/{entry}/result:
+    put: { operationId: setExamResult, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ name: entry, in: path, required: true, schema: { type: string, format: uuid } },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamResultWrite' } } } }, responses: { '204': { description: Resultado guardado; si aprobó, el grado se actualiza }, '400': { description: Resultado o grado inválido }, '404': { description: No encontrada }, '409': { description: Resultado ya registrado } } }
+  /groups/{id}/move:
+    post: { operationId: moveStudent, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MoveStudentWrite' } } } }, responses: { '204': { description: Alumno retirado del grupo y, si se indicó, asignado al nuevo }, '404': { description: El alumno no está en el grupo } } }
+  /groups/{id}/keep:
+    post: { operationId: keepStudent, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/KeepStudentWrite' } } } }, responses: { '204': { description: Aviso de edad aceptado para este alumno }, '404': { description: El alumno no está en el grupo } } }
+  /exams/{id}/entries/{entry}/exception:
+    post: { operationId: authorizeExamPayment, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ name: entry, in: path, required: true, schema: { type: string, format: uuid } },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamExceptionWrite' } } } }, responses: { '204': { description: Excepción de pago registrada }, '400': { description: Motivo requerido }, '404': { description: Inscripción no encontrada o ya resuelta } } }

@@ -29,6 +29,12 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M2.5 10h19M6.5 15h3" />
     </>
   ),
+  pedidos: (
+    <>
+      <path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5v-9Z" />
+      <path d="m3.5 7.5 8.5 4.5 8.5-4.5M12 12v9" />
+    </>
+  ),
   examenes: (
     <>
       <path d="m12 3 8 4-8 4-8-4 8-4Z" />

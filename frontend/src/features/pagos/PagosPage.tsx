@@ -1,19 +1,18 @@
 import type { Bootstrap } from "../../shared/api/contracts";
-import type { DueStatus } from "../../shared/lib/format";
+import type { DueStatus, PaymentProgress } from "../../shared/lib/format";
 import { goBack, navigate } from "../../shared/lib/navigation";
-import { paths, type PaymentsTab } from "../../shared/lib/paths";
+import { paths } from "../../shared/lib/paths";
 import { FormScreen } from "../../shared/ui/FormScreen";
 import { Link } from "../../shared/ui/Link";
 import { PageHeader } from "../../shared/ui/PageHeader";
-import { ChargesOverview } from "./components/ChargesView";
-import { OrderForm } from "./components/OrderForm";
-import { OrdersTable } from "./components/OrdersTable";
+import { ChargesOverview, type ChargeFilters } from "./components/ChargesView";
 import { PaymentForm } from "./components/PaymentForm";
 import { PaymentHistory } from "./PaymentHistory";
-import { getPendingCharges, paymentsTabs } from "./model/pagos.model";
+import { getPendingCharges } from "./model/pagos.model";
 
 type DueFilter = DueStatus | "Por vencer" | "";
-type PaymentTab = Exclude<PaymentsTab, "pedidos">;
+
+const progressFilters: PaymentProgress[] = ["Sin pagos", "Pago parcial", "Pagado"];
 
 const dueFilters: DueFilter[] = [
   "Por vencer",
@@ -26,111 +25,77 @@ const dueFilters: DueFilter[] = [
 export function PagosPage({
   data,
   reload,
-  tab,
   due,
+  q,
+  progress,
+  all,
 }: {
   data: Bootstrap;
   reload: () => Promise<void>;
-  tab: PaymentsTab;
   due?: string;
+  q?: string;
+  progress?: string;
+  all?: boolean;
 }) {
-  const pendingCharges = getPendingCharges(data);
-  const initialDue = dueFilters.find((item) => item === due) ?? "";
-  const paymentTab: PaymentTab = tab === "saldos" ? "saldos" : "cobros";
+  const filters: ChargeFilters = {
+    query: q ?? "",
+    progress: progressFilters.find((item) => item === progress) ?? "",
+    due: dueFilters.find((item) => item === due) ?? "",
+    all: Boolean(all),
+  };
+  // Los filtros viven en la URL: se conservan al recargar, volver atrás o compartir el enlace.
+  const changeFilters = (next: ChargeFilters) =>
+    navigate(
+      paths.pagos(next.due || undefined, {
+        q: next.query || undefined,
+        progress: next.progress || undefined,
+        all: next.all,
+      }),
+      { replace: true },
+    );
 
   return (
     <>
-      <PageHeader
-        help="Consulta cada cargo con su avance y vencimiento; los pagos y la logística de pedidos conservan estados independientes."
-        actions={
-          tab === "pedidos" ? (
-            <Link className="button" to={paths.pedidoNuevo}>
-              Registrar pedido
-            </Link>
-          ) : (
-            <Link className="button" to={paths.pagoNuevo(paymentTab)}>
-              Registrar pago
-            </Link>
-          )
+      <PageHeader help="Registra un pago desde el botón de arriba a la derecha: eliges al alumno y ves todo lo que debe. Los pedidos y exámenes generan sus cobros aquí." />
+      <ChargesOverview
+        data={data}
+        filters={filters}
+        onFilters={changeFilters}
+        paymentLink={(charge) => paths.pagoNuevo(charge.id)}
+        action={
+          <Link className="button" to={paths.pagoNuevo()}>
+            Registrar pago
+          </Link>
         }
       />
-      <div className="tabs" role="tablist" aria-label="Secciones de pagos">
-        {paymentsTabs.map((item) => (
-          <button
-            key={item.id}
-            id={`tab-${item.id}`}
-            className="tab"
-            role="tab"
-            aria-selected={tab === item.id}
-            aria-controls={`panel-${item.id}`}
-            onClick={() => navigate(paths.pagos(item.id), { replace: true })}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`}>
-        {tab === "cobros" && (
-          <>
-            <ChargesOverview
-              data={data}
-              paymentLink={(charge) => paths.pagoNuevo("cobros", charge.id)}
-            />
-            <PaymentHistory data={data} reload={reload} />
-          </>
-        )}
-        {tab === "saldos" && (
-          <ChargesOverview
-            key={initialDue}
-            data={{ ...data, charges: pendingCharges }}
-            initialDue={initialDue}
-            paymentLink={(charge) => paths.pagoNuevo("saldos", charge.id)}
-          />
-        )}
-        {tab === "pedidos" && <OrdersTable data={data} />}
-      </div>
+      <PaymentHistory data={data} reload={reload} />
     </>
   );
 }
 
 export function PaymentPage({
   data,
-  tab,
   chargeId,
+  studentId,
   reload,
 }: {
   data: Bootstrap;
-  tab: PaymentTab;
   chargeId?: string;
+  studentId?: string;
   reload: () => Promise<void>;
 }) {
-  const parent = paths.pagos(tab);
+  const parent = paths.pagos();
   return (
-    <FormScreen>
+    <FormScreen title="Datos del pago">
       <PaymentForm
         data={data}
         charges={getPendingCharges(data)}
         initialChargeId={chargeId}
+        initialStudentId={studentId}
         onCancel={() => goBack(parent)}
         onSaved={async () => {
           await reload();
           goBack(parent, { notice: "Pago registrado; saldo y estados actualizados.", force: true });
-        }}
-      />
-    </FormScreen>
-  );
-}
-
-export function OrderFormPage({ data, reload }: { data: Bootstrap; reload: () => Promise<void> }) {
-  const parent = paths.pagos("pedidos");
-  return (
-    <FormScreen>
-      <OrderForm
-        data={data}
-        onCancel={() => goBack(parent)}
-        onSaved={async () => {
-          await reload();
-          goBack(parent, { notice: "Pedido registrado con sus cobros.", force: true });
         }}
       />
     </FormScreen>

@@ -17,15 +17,17 @@ import { StudentForm } from "./StudentForm";
 export function AlumnosPage({ data }: { data: Bootstrap }) {
   return (
     <>
-      <PageHeader
-        help="Consulta alumnos activos e inactivos y administra su expediente."
-        actions={
+      <PageHeader help="Consulta alumnos activos e inactivos y administra su expediente." />
+      <StudentList
+        students={data.students}
+        grades={data.grades}
+        groups={data.groups}
+        action={
           <Link className="button" to={paths.alumnoNuevo}>
             Registrar alumno
           </Link>
         }
       />
-      <StudentList students={data.students} />
     </>
   );
 }
@@ -126,21 +128,31 @@ export function StudentFormPage({
 }) {
   const parent = student ? paths.alumno(student.id) : paths.alumnos;
   return (
-    <FormScreen>
-      <StudentForm
-        grades={data.grades}
-        today={data.demoDate}
-        initial={student}
-        onCancel={() => goBack(parent)}
-        onSaved={async () => {
-          await reload();
-          goBack(parent, {
-            notice: student ? "Expediente actualizado." : "Alumno registrado.",
-            force: true,
-          });
-        }}
+    <>
+      <PageHeader
+        help={
+          student
+            ? "Actualiza los datos del expediente. Los campos con * son obligatorios; la fecha de inscripción no se puede cambiar."
+            : "Registra a un alumno nuevo. Los campos con * son obligatorios; el correo y los datos de salud son opcionales."
+        }
       />
-    </FormScreen>
+      <FormScreen title="Datos del alumno">
+        <StudentForm
+          grades={data.grades}
+          groups={data.groups}
+          today={data.demoDate}
+          initial={student}
+          onCancel={() => goBack(parent)}
+          onSaved={async () => {
+            await reload();
+            goBack(parent, {
+              notice: student ? "Expediente actualizado." : "Alumno registrado.",
+              force: true,
+            });
+          }}
+        />
+      </FormScreen>
+    </>
   );
 }
 
@@ -160,7 +172,7 @@ export function NoteFormPage({
   reload: () => Promise<void>;
 }) {
   return (
-    <FormScreen>
+    <FormScreen title="Datos de la nota">
       <NoteForm
         studentId={student.id}
         today={data.demoDate}

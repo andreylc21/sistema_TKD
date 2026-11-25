@@ -6,7 +6,14 @@ import { useNavigationBlocker } from "../lib/navigation";
  * sustituye, avisa antes de descartar cambios sin guardar al salir por el menú, las migas de pan,
  * "Cancelar" o el botón "Atrás" del navegador.
  */
-export function FormScreen({ children }: { children: ReactNode }) {
+export function FormScreen({
+  title,
+  children,
+}: {
+  /** Nombre del formulario, p. ej. "Formulario de grupo". */
+  title?: string;
+  children: ReactNode;
+}) {
   const panel = useRef<HTMLElement>(null);
   const initialValues = useRef<string | null>(null);
   const [pending, setPending] = useState<(() => void) | null>(null);
@@ -62,6 +69,11 @@ export function FormScreen({ children }: { children: ReactNode }) {
             </button>
           </div>
         </div>
+      )}
+      {title && (
+        <header className="form-heading">
+          <h2>{title}</h2>
+        </header>
       )}
       {children}
     </section>

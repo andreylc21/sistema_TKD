@@ -4,8 +4,8 @@ import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 import { Dialog } from "../../../shared/ui/Dialog";
 import { Metric, Money } from "../../../shared/ui/Money";
 import { Notice, PageHeader } from "../../../shared/ui/PageHeader";
-import { updateOrderProgress, updateOrderProgressBulk } from "../api/pagos.api";
-import { orderItemPending } from "../model/pagos.model";
+import { updateOrderProgress, updateOrderProgressBulk } from "../../pagos/api/pagos.api";
+import { orderItemPending } from "../../pagos/model/pagos.model";
 
 type ItemMode = "receive" | "deliver";
 type BulkMode = "receivePending" | "deliverReceived";

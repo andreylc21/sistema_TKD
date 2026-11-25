@@ -102,8 +102,12 @@ func (s *Server) correctPayment(c *gin.Context) {
 	var targetStudent string
 	var available int64
 	e = tx.QueryRow(c, `SELECT ch.student_id::text,ch.total_cents-coalesce((SELECT sum(p.amount_cents) FROM payments p WHERE p.charge_id=ch.id AND p.status='valid' AND p.id<>$3),0) FROM charges ch WHERE ch.id=$1 AND ch.school_id=$2 AND ch.status='active'`, in.ChargeID, c.GetString("school"), c.Param("id")).Scan(&targetStudent, &available)
-	if e != nil || targetStudent != student || amount > available {
-		fail(c, 400, "El concepto no corresponde al alumno o el importe supera el saldo")
+	if e != nil || targetStudent != student {
+		fail(c, 400, "El concepto seleccionado no corresponde a este alumno")
+		return
+	}
+	if amount > available {
+		fail(c, 400, "El importe supera el saldo disponible del concepto")
 		return
 	}
 	_, e = tx.Exec(c, `UPDATE payments SET charge_id=$1,amount_cents=$2,received_on=$3,method=nullif($4,''),observation=$5,version=version+1,updated_at=now() WHERE id=$6 AND school_id=$7`, in.ChargeID, amount, in.Date, method, in.Observation, c.Param("id"), c.GetString("school"))
@@ -184,10 +188,25 @@ func (s *Server) createOrder(c *gin.Context) {
 		StudentID string        `json:"studentId"`
 		DueDate   string        `json:"dueDate"`
 		Items     []orderItemIn `json:"items"`
+		// Payment, si viene, registra el pago completo de todos los artículos al crear el pedido.
+		Payment *struct {
+			Date   string `json:"date"`
+			Method string `json:"method"`
+		} `json:"payment"`
+		Delivered bool `json:"delivered"`
 	}
 	if c.ShouldBindJSON(&in) != nil || len(in.Items) == 0 {
 		fail(c, 400, "Agrega al menos un artículo")
 		return
+	}
+	payMethod := ""
+	if in.Payment != nil {
+		var known bool
+		payMethod, known = map[string]string{"Efectivo": "cash", "Transferencia": "transfer", "Tarjeta": "card", "Otro": "other", "": ""}[in.Payment.Method]
+		if !known || in.Payment.Date == "" {
+			fail(c, 400, "Fecha o forma de pago inválidas")
+			return
+		}
 	}
 	tx, e := s.DB.Begin(c)
 	if e != nil {
@@ -220,10 +239,18 @@ func (s *Server) createOrder(c *gin.Context) {
 			fail(c, 400, "Artículo inválido")
 			return
 		}
-		var iid string
-		e = tx.QueryRow(c, `INSERT INTO order_items(school_id,order_id,name,size,quantity,unit_price_cents) VALUES($1,$2,$3,$4,$5,$6) RETURNING id::text`, c.GetString("school"), oid, it.Name, it.Size, it.Quantity, price).Scan(&iid)
+		var iid, chargeID string
+		e = tx.QueryRow(c, `INSERT INTO order_items(school_id,order_id,name,size,quantity,unit_price_cents,requested_to_supplier,received_quantity,delivered_quantity) VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $7 THEN $5 ELSE 0 END,CASE WHEN $7 THEN $5 ELSE 0 END) RETURNING id::text`, c.GetString("school"), oid, it.Name, it.Size, it.Quantity, price, in.Delivered).Scan(&iid)
 		if e == nil {
-			_, e = tx.Exec(c, `INSERT INTO charges(school_id,student_id,kind,reference_id,reference_item_id,period,description,original_cents,total_cents,due_date,idempotency_key) VALUES($1,$2,'order',$3,$4,to_char($5::date,'YYYY-MM'),$6,$7,$7,$5,$8)`, c.GetString("school"), in.StudentID, oid, iid, in.DueDate, "Pedido "+code+" · "+it.Name, price*int64(it.Quantity), fmt.Sprintf("order:%s:%d", oid, i))
+			e = tx.QueryRow(c, `INSERT INTO charges(school_id,student_id,kind,reference_id,reference_item_id,period,description,original_cents,total_cents,due_date,idempotency_key) VALUES($1,$2,'order',$3,$4,to_char($5::date,'YYYY-MM'),$6,$7,$7,$5,$8) RETURNING id::text`, c.GetString("school"), in.StudentID, oid, iid, in.DueDate, "Pedido "+code+" · "+it.Name, price*int64(it.Quantity), fmt.Sprintf("order:%s:%d", oid, i)).Scan(&chargeID)
+		}
+		if e == nil && in.Payment != nil && price*int64(it.Quantity) > 0 {
+			var paymentID string
+			total := price * int64(it.Quantity)
+			e = tx.QueryRow(c, `INSERT INTO payments(school_id,student_id,charge_id,amount_cents,received_on,method,observation,idempotency_key) VALUES($1,$2,$3,$4,$5,nullif($6,''),'Pagado al registrar el pedido',$7) RETURNING id::text`, c.GetString("school"), in.StudentID, chargeID, total, in.Payment.Date, payMethod, fmt.Sprintf("order-pay:%s:%d", oid, i)).Scan(&paymentID)
+			if e == nil {
+				_, e = tx.Exec(c, `INSERT INTO payment_history(school_id,payment_id,action,new_data) VALUES($1,$2,'created',jsonb_build_object('amountCents',$3::bigint))`, c.GetString("school"), paymentID, total)
+			}
 		}
 		if e != nil {
 			fail(c, 400, "No se pudo crear el artículo")

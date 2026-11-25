@@ -14,7 +14,7 @@ func ValidateGroup(name string, days []string, start, end string) error {
 	if strings.TrimSpace(name) == "" || len(days) == 0 {
 		return fmt.Errorf("nombre y días son obligatorios")
 	}
-	allowed := map[string]bool{"Lunes": true, "Martes": true, "Miércoles": true, "Jueves": true, "Viernes": true, "Sábado": true}
+	allowed := map[string]bool{"Lunes": true, "Martes": true, "Miércoles": true, "Jueves": true, "Viernes": true, "Sábado": true, "Domingo": true}
 	seen := make(map[string]bool, len(days))
 	for _, day := range days {
 		if !allowed[day] || seen[day] {
@@ -26,6 +26,17 @@ func ValidateGroup(name string, days []string, start, end string) error {
 	endTime, endErr := time.Parse("15:04", end)
 	if startErr != nil || endErr != nil || !endTime.After(startTime) {
 		return fmt.Errorf("el horario final debe ser posterior al inicial")
+	}
+	return nil
+}
+
+// ValidateAgeRange valida el perfil de edad opcional de un grupo.
+func ValidateAgeRange(min, max *int) error {
+	if (min != nil && *min < 0) || (max != nil && *max < 0) {
+		return fmt.Errorf("la edad no puede ser negativa")
+	}
+	if min != nil && max != nil && *min > *max {
+		return fmt.Errorf("la edad mínima no puede superar la máxima")
 	}
 	return nil
 }

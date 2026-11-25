@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { bootstrap, logout, request, ApiError } from "../shared/api/client";
 import type { Bootstrap } from "../shared/api/contracts";
-import { date } from "../shared/lib/format";
+import { date, dateLong } from "../shared/lib/format";
 import { useLocation } from "../shared/lib/navigation";
 import { paths } from "../shared/lib/paths";
 import { AppLayout, type Crumb, type Section } from "../shared/layout/AppLayout";
@@ -19,10 +19,10 @@ import {
 import { ClasesPage } from "../features/clases/ClasesPage";
 import { GroupFormPage } from "../features/clases/GroupFormPage";
 import { SessionDetail } from "../features/clases/components/SessionDetail";
-import { OrderFormPage, PagosPage, PaymentPage } from "../features/pagos/PagosPage";
-import { OrderDetail } from "../features/pagos/components/OrderDetail";
-import { paymentsTabs } from "../features/pagos/model/pagos.model";
-import { ExamenesPage } from "../features/examenes/ExamenesPage";
+import { PagosPage, PaymentPage } from "../features/pagos/PagosPage";
+import { OrderDetail } from "../features/pedidos/components/OrderDetail";
+import { OrderFormPage, PedidosPage } from "../features/pedidos/PedidosPage";
+import { ExamenesPage, ExamFormPage } from "../features/examenes/ExamenesPage";
 import { ReportesPage } from "../features/reportes/ReportesPage";
 import { ErrorBoundary } from "../shared/ui/ErrorBoundary";
 import { ConfiguracionPage } from "../features/configuracion/ConfiguracionPage";
@@ -109,7 +109,7 @@ export function App() {
       section={screen.section}
       crumbs={screen.crumbs}
       school={data.school.name}
-      date={date(data.demoDate)}
+      date={dateLong(data.demoDate)}
       onLogout={closeSession}
     >
       <ErrorBoundary key={screen.key}>{screen.page}</ErrorBoundary>
@@ -129,10 +129,9 @@ type Screen = {
 
 const crumb = (label: string, to = ""): Crumb => ({ label, to });
 const alumnosCrumb = crumb("Alumnos", paths.alumnos);
-const clasesCrumb = crumb("Clases", paths.clases());
-const gruposCrumb = crumb("Grupos y horarios", paths.clases("groups"));
+const clasesCrumb = crumb("Grupos", paths.clases());
 const pagosCrumb = crumb("Pagos", paths.pagos());
-const pedidosCrumb = crumb("Pedidos", paths.pagos("pedidos"));
+const pedidosCrumb = crumb("Pedidos", paths.pedidos);
 
 function resolveScreen(
   route: Route,
@@ -232,12 +231,12 @@ function resolveScreen(
         section: "clases",
         crumbs: [clasesCrumb],
         key: "clases",
-        page: <ClasesPage data={data} reload={reload} view={route.view} initialDate={route.date} />,
+        page: <ClasesPage data={data} reload={reload} initialDate={route.date} />,
       };
     case "grupo-nuevo":
       return {
         section: "clases",
-        crumbs: [clasesCrumb, gruposCrumb, crumb("Crear grupo")],
+        crumbs: [clasesCrumb, crumb("Crear grupo")],
         key: "grupo-nuevo",
         page: <GroupFormPage reload={reload} />,
       };
@@ -246,14 +245,14 @@ function resolveScreen(
       if (!group)
         return missing(
           "clases",
-          [clasesCrumb, gruposCrumb],
+          [clasesCrumb],
           "Grupo no encontrado",
-          gruposCrumb.to,
+          clasesCrumb.to,
           "los grupos",
         );
       return {
         section: "clases",
-        crumbs: [clasesCrumb, gruposCrumb, crumb(`Editar ${group.name}`)],
+        crumbs: [clasesCrumb, crumb(`Editar ${group.name}`)],
         key: `grupo-editar:${group.id}`,
         page: <GroupFormPage group={group} reload={reload} />,
       };
@@ -270,8 +269,8 @@ function resolveScreen(
           "las clases",
         );
       const group = data.groups.find((item) => item.id === session.groupId);
-      // La clase cuelga del día en que ocurre, para que "Clases" regrese a esa fecha.
-      const day = crumb("Clases", paths.clases("day", session.date));
+      // La clase cuelga del día en que ocurre, para que "Grupos" regrese a esa fecha.
+      const day = crumb("Grupos", paths.clases("day", session.date));
       const sessionCrumb = crumb(
         `${group?.name ?? "Clase"} · ${date(session.date)}`,
         paths.sesion(session.id),
@@ -312,25 +311,42 @@ function resolveScreen(
         section: "pagos",
         crumbs: [pagosCrumb],
         key: "pagos",
-        page: <PagosPage data={data} reload={reload} tab={route.tab} due={route.due} />,
+        page: (
+          <PagosPage
+            data={data}
+            reload={reload}
+            due={route.due}
+            q={route.q}
+            progress={route.progress}
+            all={route.all}
+          />
+        ),
       };
-    case "pago-nuevo": {
-      const tab = paymentsTabs.find((item) => item.id === route.tab);
+    case "pago-nuevo":
       return {
         section: "pagos",
-        crumbs: [
-          pagosCrumb,
-          ...(route.tab === "saldos" && tab ? [crumb(tab.label, paths.pagos("saldos"))] : []),
-          crumb("Registrar pago"),
-        ],
-        key: `pago-nuevo:${route.tab}:${route.chargeId ?? ""}`,
-        page: <PaymentPage data={data} tab={route.tab} chargeId={route.chargeId} reload={reload} />,
+        crumbs: [pagosCrumb, crumb("Registrar pago")],
+        key: `pago-nuevo:${route.chargeId ?? ""}`,
+        page: (
+          <PaymentPage
+            data={data}
+            chargeId={route.chargeId}
+            studentId={route.studentId}
+            reload={reload}
+          />
+        ),
       };
-    }
+    case "pedidos":
+      return {
+        section: "pedidos",
+        crumbs: [pedidosCrumb],
+        key: "pedidos",
+        page: <PedidosPage data={data} />,
+      };
     case "pedido-nuevo":
       return {
-        section: "pagos",
-        crumbs: [pagosCrumb, pedidosCrumb, crumb("Registrar pedido")],
+        section: "pedidos",
+        crumbs: [pedidosCrumb, crumb("Registrar pedido")],
         key: "pedido-nuevo",
         page: <OrderFormPage data={data} reload={reload} />,
       };
@@ -340,15 +356,15 @@ function resolveScreen(
       );
       if (!order)
         return missing(
-          "pagos",
-          [pagosCrumb, pedidosCrumb],
+          "pedidos",
+          [pedidosCrumb],
           "Pedido no encontrado",
           pedidosCrumb.to,
           "los pedidos",
         );
       return {
-        section: "pagos",
-        crumbs: [pagosCrumb, pedidosCrumb, crumb(`Pedido ${order.id}`)],
+        section: "pedidos",
+        crumbs: [pedidosCrumb, crumb(`Pedido ${order.id}`)],
         key: `pedido:${order.uuid}`,
         page: <OrderDetail data={data} order={order} reload={reload} />,
       };
@@ -358,7 +374,14 @@ function resolveScreen(
         section: "examenes",
         crumbs: [crumb("Exámenes", paths.examenes)],
         key: "examenes",
-        page: <ExamenesPage />,
+        page: <ExamenesPage data={data} reload={reload} />,
+      };
+    case "examen-nuevo":
+      return {
+        section: "examenes",
+        crumbs: [crumb("Exámenes", paths.examenes), crumb("Programar examen")],
+        key: "examen-nuevo",
+        page: <ExamFormPage data={data} reload={reload} />,
       };
     case "reportes":
       return {

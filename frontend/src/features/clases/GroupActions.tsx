@@ -5,6 +5,7 @@ import { paths } from "../../shared/lib/paths";
 import { Dialog } from "../../shared/ui/Dialog";
 import { Link } from "../../shared/ui/Link";
 import { Notice } from "../../shared/ui/PageHeader";
+import { TimeRangeFields } from "../../shared/ui/TimeRangeFields";
 import { assignStudent, createSession } from "./api/clases.api";
 
 type DialogName = "assign" | "session" | null;
@@ -141,14 +142,13 @@ export function GroupActions({
                 required
               />
             </div>
-            <div className="field">
-              <label htmlFor="session-start">Inicio</label>
-              <input id="session-start" name="start" type="time" defaultValue={start} required />
-            </div>
-            <div className="field">
-              <label htmlFor="session-end">Fin</label>
-              <input id="session-end" name="end" type="time" defaultValue={end} required />
-            </div>
+            <TimeRangeFields
+              idPrefix="session"
+              startLabel="Inicio"
+              endLabel="Fin"
+              initialStart={start}
+              initialEnd={end}
+            />
             <div className="form-actions full-span">
               <button
                 type="button"

@@ -9,12 +9,14 @@ import (
 
 func (s *Server) createGroup(c *gin.Context) {
 	var in struct {
-		Name  string   `json:"name"`
-		Days  []string `json:"days"`
-		Start string   `json:"start"`
-		End   string   `json:"end"`
+		Name   string   `json:"name"`
+		Days   []string `json:"days"`
+		Start  string   `json:"start"`
+		End    string   `json:"end"`
+		MinAge *int     `json:"minAge"`
+		MaxAge *int     `json:"maxAge"`
 	}
-	if c.ShouldBindJSON(&in) != nil || clases.ValidateGroup(in.Name, in.Days, in.Start, in.End) != nil {
+	if c.ShouldBindJSON(&in) != nil || clases.ValidateGroup(in.Name, in.Days, in.Start, in.End) != nil || clases.ValidateAgeRange(in.MinAge, in.MaxAge) != nil {
 		fail(c, 400, "Completa nombre, días y horario")
 		return
 	}
@@ -33,7 +35,7 @@ func (s *Server) createGroup(c *gin.Context) {
 		return
 	}
 	var id string
-	e = tx.QueryRow(c, `INSERT INTO class_groups(school_id,name,days,start_time,end_time) VALUES($1,$2,$3,$4,$5) RETURNING id::text`, c.GetString("school"), in.Name, in.Days, in.Start, in.End).Scan(&id)
+	e = tx.QueryRow(c, `INSERT INTO class_groups(school_id,name,days,start_time,end_time,min_age,max_age) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id::text`, c.GetString("school"), in.Name, in.Days, in.Start, in.End, in.MinAge, in.MaxAge).Scan(&id)
 	if e == nil {
 		e = completeIdempotency(c, tx, c.GetString("school"), key, "createGroup", id)
 	}
@@ -54,13 +56,15 @@ func (s *Server) updateGroup(c *gin.Context) {
 		Days    []string `json:"days"`
 		Start   string   `json:"start"`
 		End     string   `json:"end"`
+		MinAge  *int     `json:"minAge"`
+		MaxAge  *int     `json:"maxAge"`
 		Version int      `json:"version"`
 	}
-	if c.ShouldBindJSON(&in) != nil || clases.ValidateGroup(in.Name, in.Days, in.Start, in.End) != nil || in.Version < 1 {
+	if c.ShouldBindJSON(&in) != nil || clases.ValidateGroup(in.Name, in.Days, in.Start, in.End) != nil || clases.ValidateAgeRange(in.MinAge, in.MaxAge) != nil || in.Version < 1 {
 		fail(c, 400, "Completa nombre, días y horario")
 		return
 	}
-	tag, e := s.DB.Exec(c, `UPDATE class_groups SET name=$1,days=$2,start_time=$3,end_time=$4,version=version+1,updated_at=now() WHERE id=$5 AND school_id=$6 AND version=$7`, in.Name, in.Days, in.Start, in.End, c.Param("id"), c.GetString("school"), in.Version)
+	tag, e := s.DB.Exec(c, `UPDATE class_groups SET name=$1,days=$2,start_time=$3,end_time=$4,min_age=$8,max_age=$9,version=version+1,updated_at=now() WHERE id=$5 AND school_id=$6 AND version=$7`, in.Name, in.Days, in.Start, in.End, c.Param("id"), c.GetString("school"), in.Version, in.MinAge, in.MaxAge)
 	if e != nil {
 		fail(c, 400, "No se pudo actualizar el grupo")
 		return
@@ -81,7 +85,7 @@ func (s *Server) assignStudent(c *gin.Context) {
 		fail(c, 400, "Alumno y fecha son obligatorios")
 		return
 	}
-	_, e := s.DB.Exec(c, `INSERT INTO group_assignments(school_id,group_id,student_id,assigned_from) SELECT $1,g.id,st.id,$4 FROM class_groups g JOIN students st ON st.id=$3 AND st.school_id=$1 WHERE g.id=$2 AND g.school_id=$1 ON CONFLICT DO NOTHING`, c.GetString("school"), c.Param("id"), in.StudentID, in.AssignedFrom)
+	_, e := s.DB.Exec(c, `INSERT INTO group_assignments(school_id,group_id,student_id,assigned_from,age_kept) SELECT $1,g.id,st.id,$4,((g.min_age IS NOT NULL AND date_part('year',age($4::date,st.birth_date))<g.min_age) OR (g.max_age IS NOT NULL AND date_part('year',age($4::date,st.birth_date))>g.max_age)) FROM class_groups g JOIN students st ON st.id=$3 AND st.school_id=$1 WHERE g.id=$2 AND g.school_id=$1 ON CONFLICT DO NOTHING`, c.GetString("school"), c.Param("id"), in.StudentID, in.AssignedFrom)
 	if e != nil {
 		fail(c, 400, "No se pudo asignar el alumno")
 		return
@@ -210,6 +214,64 @@ func (s *Server) sessionStatus(c *gin.Context) {
 	}
 	if e = tx.Commit(c); e != nil {
 		fail(c, 500, "No se pudo guardar")
+		return
+	}
+	c.Status(204)
+}
+
+// moveStudent saca al alumno del grupo desde una fecha y, si se indica, lo pasa a otro grupo.
+// Las clases ya programadas conservan sus participantes: sólo cambia la pertenencia futura.
+func (s *Server) moveStudent(c *gin.Context) {
+	var in struct {
+		StudentID string `json:"studentId"`
+		ToGroupID string `json:"toGroupId"`
+		Date      string `json:"date"`
+	}
+	if c.ShouldBindJSON(&in) != nil || in.StudentID == "" || in.Date == "" {
+		fail(c, 400, "Alumno y fecha son obligatorios")
+		return
+	}
+	school := c.GetString("school")
+	tx, e := s.DB.Begin(c)
+	if e != nil {
+		fail(c, 500, "No se pudo mover al alumno")
+		return
+	}
+	defer tx.Rollback(c)
+	tag, e := tx.Exec(c, `DELETE FROM group_assignments WHERE school_id=$1 AND group_id=$2 AND student_id=$3 AND assigned_to IS NULL AND assigned_from>=$4`, school, c.Param("id"), in.StudentID, in.Date)
+	if e == nil && tag.RowsAffected() == 0 {
+		tag, e = tx.Exec(c, `UPDATE group_assignments SET assigned_to=$4::date-1 WHERE school_id=$1 AND group_id=$2 AND student_id=$3 AND assigned_to IS NULL`, school, c.Param("id"), in.StudentID, in.Date)
+	}
+	if e != nil || tag.RowsAffected() == 0 {
+		fail(c, 404, "El alumno no está asignado a este grupo")
+		return
+	}
+	if in.ToGroupID != "" {
+		_, e = tx.Exec(c, `INSERT INTO group_assignments(school_id,group_id,student_id,assigned_from,age_kept) SELECT $1,g.id,st.id,$4,((g.min_age IS NOT NULL AND date_part('year',age($4::date,st.birth_date))<g.min_age) OR (g.max_age IS NOT NULL AND date_part('year',age($4::date,st.birth_date))>g.max_age)) FROM class_groups g JOIN students st ON st.id=$3 AND st.school_id=$1 WHERE g.id=$2 AND g.school_id=$1 ON CONFLICT DO NOTHING`, school, in.ToGroupID, in.StudentID, in.Date)
+		if e != nil {
+			fail(c, 400, "No se pudo asignar al nuevo grupo")
+			return
+		}
+	}
+	if e = tx.Commit(c); e != nil {
+		fail(c, 500, "No se pudo guardar el cambio")
+		return
+	}
+	c.Status(204)
+}
+
+// keepStudent registra que la maestra decidió dejar al alumno en el grupo aunque salga del rango de edad.
+func (s *Server) keepStudent(c *gin.Context) {
+	var in struct {
+		StudentID string `json:"studentId"`
+	}
+	if c.ShouldBindJSON(&in) != nil || in.StudentID == "" {
+		fail(c, 400, "Selecciona un alumno")
+		return
+	}
+	tag, e := s.DB.Exec(c, `UPDATE group_assignments SET age_kept=true WHERE school_id=$1 AND group_id=$2 AND student_id=$3 AND assigned_to IS NULL`, c.GetString("school"), c.Param("id"), in.StudentID)
+	if e != nil || tag.RowsAffected() == 0 {
+		fail(c, 404, "El alumno no está asignado a este grupo")
 		return
 	}
 	c.Status(204)

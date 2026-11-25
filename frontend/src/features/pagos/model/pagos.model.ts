@@ -6,13 +6,6 @@ import {
   type DueStatus,
   type PaymentProgress,
 } from "../../../shared/lib/format";
-import type { PaymentsTab } from "../../../shared/lib/paths";
-
-export const paymentsTabs: { id: PaymentsTab; label: string }[] = [
-  { id: "cobros", label: "Cobros y pagos" },
-  { id: "saldos", label: "Saldos pendientes" },
-  { id: "pedidos", label: "Pedidos" },
-];
 
 export function balanceFor(charge: Charge, data: Bootstrap) {
   return charge.total - paidFor(charge.id, data.payments);

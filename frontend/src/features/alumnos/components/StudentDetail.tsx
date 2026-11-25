@@ -4,6 +4,8 @@ import { paths } from "../../../shared/lib/paths";
 import { Link } from "../../../shared/ui/Link";
 import { Money } from "../../../shared/ui/Money";
 import { Empty, PageHeader } from "../../../shared/ui/PageHeader";
+import { AgeAlertRow } from "../../clases/components/AgeAlertRow";
+import { ageAlerts } from "../../clases/model/clases.model";
 import { studentNotes } from "../model/alumnos.model";
 import { NoteList } from "./NoteList";
 
@@ -21,6 +23,9 @@ export function StudentDetail({
   onChangeStatus: () => void;
 }) {
   const notes = studentNotes(data.notes, student.id);
+  const alerts = ageAlerts(data.groups, data.students).filter(
+    (alert) => alert.student.id === student.id,
+  );
   const balance = data.charges
     .filter((charge) => charge.studentId === student.id)
     .reduce((sum, charge) => sum + charge.total - paidFor(charge.id, data.payments), 0);
@@ -49,6 +54,12 @@ export function StudentDetail({
           </>
         }
       />
+      {alerts.map((alert) => (
+        <div key={alert.group.id} className="callout spacer-bottom">
+          <strong>Ya no entra en {alert.group.name}</strong>
+          <AgeAlertRow alert={alert} data={data} reload={reload} />
+        </div>
+      ))}
       <div className="grid cols-2">
         <section className="card">
           <div className="card-header">

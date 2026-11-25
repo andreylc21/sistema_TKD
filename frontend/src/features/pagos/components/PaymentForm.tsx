@@ -1,28 +1,36 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import type { Bootstrap, Charge, PaymentWrite } from "../../../shared/api/contracts";
 import { date, money } from "../../../shared/lib/format";
-import { Money } from "../../../shared/ui/Money";
 import { Empty, Notice } from "../../../shared/ui/PageHeader";
 import { createPayment } from "../api/pagos.api";
 import { chargePresentation } from "../model/pagos.model";
+import { PaymentSummary } from "./PaymentSummary";
 
 export function PaymentForm({
   data,
   charges,
   initialChargeId,
+  initialStudentId,
   onSaved,
   onCancel,
 }: {
   data: Bootstrap;
   charges: Charge[];
   initialChargeId?: string;
+  initialStudentId?: string;
   onSaved: () => Promise<void>;
   onCancel: () => void;
 }) {
   const initialCharge = charges.find((charge) => charge.id === initialChargeId);
-  const [studentId, setStudentId] = useState(initialCharge?.studentId ?? "");
-  const [chargeId, setChargeId] = useState(initialCharge?.id ?? "");
+  const startStudent = initialCharge?.studentId ?? initialStudentId ?? "";
+  const startCharges = charges.filter((charge) => charge.studentId === startStudent);
+  const [studentId, setStudentId] = useState(startStudent);
+  // Con un solo cargo pendiente no hay nada que elegir: queda seleccionado.
+  const [chargeId, setChargeId] = useState(
+    initialCharge?.id ?? (startCharges.length === 1 ? startCharges[0].id : ""),
+  );
   const [amount, setAmount] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const idempotencyKey = useRef(crypto.randomUUID());
@@ -40,11 +48,30 @@ export function PaymentForm({
         .sort((left, right) => left.student.name.localeCompare(right.student.name, "es")),
     [charges, data],
   );
-  const studentCharges = charges.filter((charge) => charge.studentId === studentId);
+  const studentCharges = charges
+    .filter((charge) => charge.studentId === studentId)
+    .sort((left, right) => left.due.localeCompare(right.due));
+  const categories = [...new Set(studentCharges.map((charge) => charge.category))];
+  const visibleCharges = studentCharges.filter(
+    (charge) => !typeFilter || charge.category === typeFilter,
+  );
+  const owedTotal = studentCharges.reduce(
+    (sum, charge) => sum + chargePresentation(charge, data).balance,
+    0,
+  );
   const selected = studentCharges.find((charge) => charge.id === chargeId);
   const state = selected ? chargePresentation(selected, data) : null;
   const numericAmount = Number(amount || 0);
   const overpayment = Boolean(state && numericAmount > state.balance);
+  const blockReason = !studentId
+    ? "Selecciona un alumno."
+    : !selected
+      ? "Selecciona el cargo que se está pagando."
+      : numericAmount <= 0
+        ? "Escribe un importe mayor a $0."
+        : overpayment
+          ? "Reduce el importe: supera el saldo."
+          : "";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -98,9 +125,14 @@ export function PaymentForm({
           id="payment-student"
           value={studentId}
           onChange={(event) => {
+            const next = charges.filter((charge) => charge.studentId === event.target.value);
             setStudentId(event.target.value);
-            setChargeId("");
-            setAmount("");
+            setTypeFilter("");
+            // Con un solo cargo pendiente no hay nada que elegir: queda seleccionado.
+            setChargeId(next.length === 1 ? next[0].id : "");
+            setAmount(
+              next.length === 1 ? chargePresentation(next[0], data).balance.toFixed(2) : "",
+            );
           }}
           required
         >
@@ -113,61 +145,61 @@ export function PaymentForm({
         </select>
       </div>
       {studentId && (
-        <div className="field full-span">
-          <label htmlFor="charge">Cargo con saldo</label>
-          <select
-            id="charge"
-            value={chargeId}
-            onChange={(event) => {
-              setChargeId(event.target.value);
-              setAmount("");
-            }}
-            required
-          >
-            <option value="">Selecciona un cargo</option>
-            {studentCharges.map((charge) => (
-              <option key={charge.id} value={charge.id}>
-                {charge.concept} · saldo {money(chargePresentation(charge, data).balance)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <fieldset className="full-span account">
+          <legend>
+            Lo que debe · <strong>{money(owedTotal)}</strong>
+          </legend>
+          {categories.length > 1 && (
+            <div className="chip-row" role="group" aria-label="Filtrar por tipo de cargo">
+              {["", ...categories].map((category) => (
+                <button
+                  key={category || "all"}
+                  type="button"
+                  className={`chip ${typeFilter === category ? "active" : ""}`}
+                  aria-pressed={typeFilter === category}
+                  onClick={() => setTypeFilter(category)}
+                >
+                  {category || "Todos"}
+                </button>
+              ))}
+            </div>
+          )}
+          <ul className="account-list">
+            {visibleCharges.map((charge) => {
+              const balance = chargePresentation(charge, data).balance;
+              return (
+                <li key={charge.id}>
+                  <label className={`account-row ${charge.id === chargeId ? "selected" : ""}`}>
+                    <input
+                      type="radio"
+                      name="charge"
+                      checked={charge.id === chargeId}
+                      onChange={() => {
+                        setChargeId(charge.id);
+                        setAmount(balance.toFixed(2));
+                      }}
+                    />
+                    <span className="account-concept">
+                      <strong>{charge.concept}</strong>
+                      <span className="muted">
+                        {charge.category} · vence {date(charge.due)}
+                      </span>
+                    </span>
+                    <strong>{money(balance)}</strong>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </fieldset>
       )}
       {selected && state && (
-        <div className="payment-summary full-span">
-          <div>
-            <span>Concepto</span>
-            <strong>{selected.concept}</strong>
-          </div>
-          <div>
-            <span>Vencimiento</span>
-            <strong>{date(selected.due)}</strong>
-          </div>
-          <div>
-            <span>Total</span>
-            <strong>
-              <Money value={selected.total} />
-            </strong>
-          </div>
-          <div>
-            <span>Recibido</span>
-            <strong>
-              <Money value={state.received} />
-            </strong>
-          </div>
-          <div>
-            <span>Saldo actual</span>
-            <strong>
-              <Money value={state.balance} />
-            </strong>
-          </div>
-          <div>
-            <span>Saldo resultante</span>
-            <strong>
-              <Money value={Math.max(0, state.balance - numericAmount)} />
-            </strong>
-          </div>
-        </div>
+        <PaymentSummary
+          charge={selected}
+          received={state.received}
+          balance={state.balance}
+          amount={numericAmount}
+        />
       )}
       <div className="field">
         <label htmlFor="amount">Importe recibido</label>
@@ -228,9 +260,15 @@ export function PaymentForm({
         <button type="button" className="button secondary" onClick={onCancel}>
           Cancelar
         </button>
+        {blockReason && !busy && (
+          <span id="payment-block-reason" className="field-hint" role="status">
+            {blockReason}
+          </span>
+        )}
         <button
           className="button"
-          disabled={busy || !selected || overpayment || numericAmount <= 0}
+          aria-describedby={blockReason ? "payment-block-reason" : undefined}
+          disabled={busy || Boolean(blockReason)}
         >
           {busy ? "Registrando…" : "Registrar pago"}
         </button>

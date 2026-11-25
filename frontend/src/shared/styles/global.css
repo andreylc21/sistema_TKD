@@ -1,8 +1,40 @@
 @font-face {
-  font-family: "Noto Sans TKD";
-  src: url("/fonts/NotoSans-Latin-Variable.woff2") format("woff2-variations");
+  font-family: "Roboto TKD";
+  src: url("/fonts/Roboto-400.woff2") format("woff2");
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto TKD";
+  src: url("/fonts/Roboto-500.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto TKD";
+  src: url("/fonts/Roboto-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Barlow Condensed TKD";
+  src: url("/fonts/BarlowCondensed-600.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Barlow Condensed TKD";
+  src: url("/fonts/BarlowCondensed-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
   font-display: swap;
 }
 
@@ -31,9 +63,10 @@
   --warning-soft: #fff3df;
   --radius: 6px;
   --shadow: 0 14px 36px rgba(29, 34, 43, 0.15);
-  --sidebar-width: 244px;
+  --sidebar-width: 212px;
+  --font-display: "Barlow Condensed TKD", "Arial Narrow", "Roboto TKD", sans-serif;
   font-family:
-    "Noto Sans TKD",
+    "Roboto TKD",
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -122,7 +155,7 @@ select:focus-visible,
   width: var(--sidebar-width);
   display: flex;
   flex-direction: column;
-  padding: 20px 14px 16px;
+  padding: 20px 0 16px;
   overflow-y: auto;
   color: #fff;
   background: var(--sidebar);
@@ -132,7 +165,7 @@ select:focus-visible,
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 8px 24px;
+  padding: 0 20px 24px;
 }
 
 .brand-block > div:nth-child(2) {
@@ -176,9 +209,9 @@ select:focus-visible,
   text-decoration: none;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 20px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 0;
   color: #d8dfeb;
   background: transparent;
   text-align: left;
@@ -227,7 +260,7 @@ select:focus-visible,
   width: 100%;
   max-width: 1500px;
   margin: 0 auto;
-  padding: 0 clamp(20px, 4vw, 54px);
+  padding: 0 clamp(10px, 2vw, 27px);
   display: flex;
   align-items: center;
   gap: 14px;
@@ -328,7 +361,7 @@ select:focus-visible,
 main {
   max-width: 1500px;
   margin: 0 auto;
-  padding: 32px clamp(20px, 4vw, 54px) 72px;
+  padding: 32px clamp(10px, 2vw, 27px) 72px;
 }
 
 .page-header {
@@ -353,12 +386,14 @@ main {
   gap: 10px;
 }
 .page-help {
-  position: relative;
-  flex: 0 0 auto;
+  position: fixed;
+  z-index: 40;
+  right: 24px;
+  bottom: 24px;
 }
 .help-button {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border: 1px solid var(--line-strong);
@@ -366,13 +401,14 @@ main {
   color: var(--primary-dark);
   background: #fff;
   font-weight: 700;
+  box-shadow: 0 4px 14px rgba(23, 26, 31, 0.2);
   cursor: pointer;
 }
 .help-popover {
   position: absolute;
   z-index: 50;
-  top: calc(100% + 8px);
-  left: 0;
+  bottom: calc(100% + 8px);
+  right: 0;
   width: min(360px, calc(100vw - 40px));
   padding: 12px 14px;
   border: 1px solid var(--line-strong);
@@ -589,7 +625,7 @@ main {
 }
 
 .text-button {
-  min-height: 40px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   border: 0;
@@ -672,6 +708,10 @@ main {
 }
 
 .list-tools .filter-trigger {
+  flex: 0 0 auto;
+}
+.list-tools-action {
+  margin-left: auto;
   flex: 0 0 auto;
 }
 .filter-count {
@@ -1350,7 +1390,8 @@ legend {
   overflow-wrap: anywhere;
 }
 .form-screen {
-  max-width: 760px;
+  max-width: 880px;
+  margin-inline: auto;
   padding: 24px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1466,16 +1507,12 @@ main > .success-message {
     gap: 16px;
     margin-bottom: 22px;
   }
-  .page-title-row {
-    position: relative;
-  }
   .page-help {
-    position: static;
+    right: 16px;
+    bottom: 16px;
   }
   .help-popover {
-    left: 0;
-    right: 0;
-    width: auto;
+    width: min(360px, calc(100vw - 32px));
   }
   .header-actions {
     justify-content: flex-start;
@@ -1489,6 +1526,7 @@ main > .success-message {
   .payment-summary {
     grid-template-columns: 1fr;
   }
+
   .summary-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1507,6 +1545,12 @@ main > .success-message {
   }
   .list-tools .field {
     min-width: 0;
+  }
+  .list-tools-action {
+    width: 100%;
+  }
+  .list-tools-action .button {
+    width: 100%;
   }
   .list-tools .filter-trigger {
     min-width: 48px;
@@ -1651,7 +1695,400 @@ main > .success-message {
   font-weight: 600;
 }
 
-.attendance-control { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
-.row-feedback { font-size: 0.875rem; }
-.row-feedback.ok { color: #1C6539; }
-.row-feedback.error { color: var(--danger-dark); }
+.attendance-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+.row-feedback {
+  font-size: 0.875rem;
+}
+.row-feedback.ok {
+  color: #1c6539;
+}
+.row-feedback.error {
+  color: var(--danger-dark);
+}
+.save-model-note {
+  margin: 0 0 8px;
+}
+.field-hint {
+  color: var(--muted, #5b6478);
+  font-size: 0.82rem;
+}
+.required-legend {
+  margin: 0;
+  color: var(--muted, #5b6478);
+  font-size: 0.85rem;
+}
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"] {
+  border-color: var(--danger-dark);
+}
+
+/* Títulos y métricas clave en Barlow Condensed; el resto del texto usa Roboto. */
+h1,
+h2,
+h3,
+.brand-block strong,
+.metric-value,
+.summary-item > strong,
+.group-stats strong,
+.payment-summary > div > strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+h3,
+.payment-summary > div > strong {
+  font-weight: 600;
+}
+.topbar-heading h1 {
+  font-size: 2.4rem;
+  letter-spacing: 0.01em;
+}
+.metric-value,
+.summary-item > strong {
+  font-size: 1.5rem;
+  line-height: 1.15;
+}
+
+/* Franja de Inicio: mismos elementos, con las cifras un poco más grandes. */
+.summary-strip.large .summary-item {
+  padding: 20px 22px;
+}
+.summary-strip.large .summary-item > span {
+  font-size: 0.92rem;
+}
+.summary-strip.large .summary-item > strong {
+  font-size: 2.4rem;
+  line-height: 1.1;
+}
+
+/* Listas de Inicio (clases del día, vencidos, próximos, pedidos): texto y filas más grandes. */
+.operational-list > header {
+  padding: 16px 22px;
+}
+.operational-list h2 {
+  font-size: 1.5rem;
+}
+.operational-list .list-row {
+  gap: 20px;
+  padding: 20px 22px;
+}
+.operational-list .list-row-main > strong,
+.operational-list .list-row-main > .text-button {
+  font-size: 1.15rem;
+}
+.operational-list .list-row-main > span {
+  margin-top: 4px;
+  font-size: 0.95rem;
+}
+.operational-list .button.small {
+  padding: 10px 16px;
+  font-size: 0.98rem;
+}
+.operational-list .empty-inline {
+  padding: 32px 22px;
+  font-size: 1.05rem;
+}
+
+/* Enlaces de cabecera de las listas de Inicio: sin subrayado, con flecha y subrayado al pasar. */
+.operational-list > header .text-button {
+  padding: 4px 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.operational-list > header .text-button::after {
+  content: "→";
+  margin-left: 8px;
+  transition: transform 0.15s;
+}
+.operational-list > header .text-button:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+.operational-list > header .text-button:hover::after {
+  transform: translateX(4px);
+}
+
+/* Barra superior más grande. */
+.topbar,
+.topbar-inner {
+  min-height: 96px;
+}
+.topbar-school {
+  font-size: 0.95rem;
+}
+.breadcrumbs {
+  font-size: 1rem;
+}
+.topbar-date {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.section-gap {
+  margin-bottom: 18px;
+}
+.section-title {
+  margin: 28px 0 12px;
+  font-size: 1.15rem;
+}
+.section-title.first {
+  margin-top: 4px;
+}
+
+.clases-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.group-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.group-schedule {
+  margin: 4px 0;
+  font-weight: 600;
+}
+.clases-day {
+  position: sticky;
+  top: 16px;
+}
+.session-list {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.session-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+}
+.session-card .muted {
+  margin: 0;
+}
+.session-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+@media (max-width: 900px) {
+  .clases-layout {
+    grid-template-columns: 1fr;
+  }
+  .clases-day {
+    position: static;
+    order: -1;
+  }
+}
+.clases-day .card {
+  margin-top: 14px;
+}
+.clases-day .session-list .card {
+  margin-top: 0;
+}
+
+.panel {
+  padding: 18px 20px 20px;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.panel-head h2 {
+  margin: 0;
+}
+.group-card,
+.session-card {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+.group-card h3 {
+  margin: 0;
+}
+.group-card p,
+.session-card p {
+  margin: 0;
+}
+.clases-day .empty-state {
+  padding: 24px 8px;
+}
+
+.form-heading {
+  margin: 0 0 20px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.form-heading h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.age-alerts summary {
+  cursor: pointer;
+  list-style: none;
+}
+.age-alerts summary::-webkit-details-marker {
+  display: none;
+}
+.age-alert {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.age-alert p {
+  margin: 0;
+}
+.spacer-bottom {
+  margin-bottom: 18px;
+}
+
+.time-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.time-select select {
+  flex: 1;
+  min-width: 0;
+}
+
+.section-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.account {
+  display: grid;
+  gap: 10px;
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  cursor: pointer;
+}
+.chip.active {
+  border-color: var(--primary);
+  color: #fff;
+  background: var(--primary);
+}
+.account-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.account-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.account-row.selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.account-concept {
+  display: grid;
+}
+
+.tabs-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.tabs-row .tabs {
+  margin-bottom: 0;
+}
+.tabs-actions {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+@media (max-width: 640px) {
+  .tabs-row {
+    flex-wrap: wrap;
+  }
+  .tabs-actions {
+    width: 100%;
+  }
+  .tabs-actions .button {
+    flex: 1;
+  }
+}
+
+.order-lines {
+  display: grid;
+  gap: 12px;
+}
+.order-line {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+.order-total {
+  margin: 0;
+  text-align: right;
+}
+@media (max-width: 640px) {
+  .order-line {
+    grid-template-columns: 1fr 1fr;
+  }
+  .order-line-name {
+    grid-column: 1 / -1;
+  }
+}
+.order-line .field {
+  min-width: 0;
+}
+.order-line input {
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar-action {
+  margin-left: auto;
+  align-self: end;
+}

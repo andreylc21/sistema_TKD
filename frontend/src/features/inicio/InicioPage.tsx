@@ -26,21 +26,25 @@ export function InicioPage({ data }: { data: Bootstrap }) {
     ),
   );
 
+  const unrecorded = today
+    .filter((session) => session.status === "Programada")
+    .reduce(
+      (sum, session) =>
+        sum + session.attendance.filter((entry) => entry.status === "Sin registrar").length,
+      0,
+    );
+  const activeStudents = data.students.filter((student) => student.status === "Activo").length;
+
   return (
     <>
-      <PageHeader
-        help="Muestra prioridades operativas y accesos directos a la clase, cargo, pedido o expediente correspondiente."
-        context={`Fecha operativa: ${date(data.demoDate)}`}
-      />
-      <div className="summary-strip">
-        <Metric label="Clases de hoy">{today.length}</Metric>
-        <Metric label="Cargos vencidos">{overdue.length}</Metric>
-        <Metric label="Próximos a pagar">{upcoming.length}</Metric>
-        <Metric label="Pedidos por completar">{openOrders.length}</Metric>
+      <PageHeader help="Muestra prioridades operativas y accesos directos a la clase, cargo, pedido o expediente correspondiente." />
+      <div className="summary-strip large">
+        <Metric label="Asistencia por registrar hoy">{unrecorded}</Metric>
+        <Metric label="Alumnos activos">{activeStudents}</Metric>
       </div>
       <div className="dashboard-grid spacer-top">
         <PriorityList
-          title="Clases del día"
+          title={`Clases del día · ${today.length}`}
           empty="Sin clases programadas para hoy."
           action={
             <Link className="text-button" to={paths.clases()}>
@@ -66,10 +70,10 @@ export function InicioPage({ data }: { data: Bootstrap }) {
           })}
         </PriorityList>
         <PriorityList
-          title="Cargos vencidos"
+          title={`Cargos vencidos · ${overdue.length}`}
           empty="No hay cargos vencidos."
           action={
-            <Link className="text-button" to={paths.pagos("saldos", "Vencido")}>
+            <Link className="text-button" to={paths.pagos("Vencido")}>
               Ver todos
             </Link>
           }
@@ -79,10 +83,10 @@ export function InicioPage({ data }: { data: Bootstrap }) {
           ))}
         </PriorityList>
         <PriorityList
-          title="Próximos a pagar"
+          title={`Próximos a pagar · ${upcoming.length}`}
           empty="No hay cargos próximos."
           action={
-            <Link className="text-button" to={paths.pagos("saldos", "Por vencer")}>
+            <Link className="text-button" to={paths.pagos("Por vencer")}>
               Ver todos
             </Link>
           }
@@ -92,10 +96,10 @@ export function InicioPage({ data }: { data: Bootstrap }) {
           ))}
         </PriorityList>
         <PriorityList
-          title="Pedidos por completar"
+          title={`Pedidos por completar · ${openOrders.length}`}
           empty="No hay recepciones ni entregas pendientes."
           action={
-            <Link className="text-button" to={paths.pagos("pedidos")}>
+            <Link className="text-button" to={paths.pedidos}>
               Revisar pedidos
             </Link>
           }
@@ -151,7 +155,7 @@ function ChargeRow({
           {charge.concept} · {date(charge.due)} · Saldo <Money value={balance} />
         </span>
       </div>
-      <Link className="button secondary small" to={paths.pagoNuevo("saldos", charge.id)}>
+      <Link className="button secondary small" to={paths.pagoNuevo(charge.id)}>
         Registrar pago
       </Link>
     </li>

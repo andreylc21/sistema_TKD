@@ -5,6 +5,8 @@ import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { Dialog } from "../../shared/ui/Dialog";
 import { Money } from "../../shared/ui/Money";
 import { Notice } from "../../shared/ui/PageHeader";
+import { PaymentSummary } from "./components/PaymentSummary";
+import { chargePresentation } from "./model/pagos.model";
 import { correctPayment, voidPayment as voidPaymentRequest } from "./api/pagos.api";
 
 export function PaymentHistory({ data, reload }: { data: Bootstrap; reload: () => Promise<void> }) {
@@ -122,74 +124,150 @@ export function PaymentHistory({ data, reload }: { data: Bootstrap; reload: () =
       )}
       {editing && (
         <Dialog title="Corregir pago" onClose={() => setEditing(null)}>
-          <form className="form-grid" onSubmit={correct}>
-            {error && (
-              <div className="full-span">
-                <Notice kind="error">{error}</Notice>
-              </div>
-            )}
-            <div className="field full-span">
-              <label htmlFor="edit-charge">Concepto</label>
-              <select id="edit-charge" name="chargeId" defaultValue={editing.chargeId}>
-                {data.charges
-                  .filter((c) => c.studentId === editing.studentId)
-                  .map((c) => (
-                    <option value={c.id} key={c.id}>
-                      {c.concept}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="edit-amount">Importe</label>
-              <input
-                id="edit-amount"
-                name="amount"
-                type="number"
-                min="0.01"
-                step="0.01"
-                defaultValue={editing.amount.toFixed(2)}
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="edit-date">Fecha recibida</label>
-              <input id="edit-date" name="date" type="date" defaultValue={editing.date} required />
-            </div>
-            <div className="field">
-              <label htmlFor="edit-method">Forma</label>
-              <select id="edit-method" name="method" defaultValue={editing.method}>
-                <option value="">Sin especificar</option>
-                <option>Efectivo</option>
-                <option>Transferencia</option>
-                <option>Tarjeta</option>
-                <option>Otro</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="edit-observation">Comentario del pago</label>
-              <input id="edit-observation" name="observation" defaultValue={editing.reason} />
-            </div>
-            <div className="field full-span">
-              <label htmlFor="edit-reason">
-                Motivo de la corrección <b>*</b>
-              </label>
-              <input id="edit-reason" name="reason" required />
-            </div>
-            <div className="form-actions full-span">
-              <button
-                type="button"
-                className="button secondary"
-                data-dialog-close
-                onClick={() => setEditing(null)}
-              >
-                Cancelar
-              </button>
-              <button className="button">Guardar corrección</button>
-            </div>
-          </form>
+          <CorrectionForm
+            data={data}
+            payment={editing}
+            error={error}
+            onSubmit={correct}
+            onCancel={() => setEditing(null)}
+          />
         </Dialog>
       )}
     </section>
+  );
+}
+
+function CorrectionForm({
+  data,
+  payment,
+  error,
+  onSubmit,
+  onCancel,
+}: {
+  data: Bootstrap;
+  payment: Payment;
+  error: string;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancel: () => void;
+}) {
+  const [chargeId, setChargeId] = useState(payment.chargeId);
+  const [amount, setAmount] = useState(payment.amount.toFixed(2));
+  const charges = data.charges.filter((charge) => charge.studentId === payment.studentId);
+  const charge = charges.find((item) => item.id === chargeId);
+  const state = charge ? chargePresentation(charge, data) : null;
+  // El pago que se corrige ya cuenta en el saldo de su cargo actual: se devuelve para comparar.
+  const own = chargeId === payment.chargeId ? payment.amount : 0;
+  const received = state ? state.received - own : 0;
+  const available = state ? state.balance + own : 0;
+  const numericAmount = Number(amount || 0);
+  const overpayment = Boolean(state && numericAmount > available);
+  const blockReason = !charge
+    ? "Selecciona el concepto."
+    : numericAmount <= 0
+      ? "Escribe un importe mayor a $0."
+      : overpayment
+        ? "Reduce el importe: supera el saldo."
+        : "";
+  return (
+    <form className="form-grid" onSubmit={onSubmit}>
+      {error && (
+        <div className="full-span">
+          <Notice kind="error">{error}</Notice>
+        </div>
+      )}
+      <div className="field full-span">
+        <label htmlFor="edit-charge">Concepto</label>
+        <select
+          id="edit-charge"
+          name="chargeId"
+          value={chargeId}
+          onChange={(event) => setChargeId(event.target.value)}
+        >
+          {charges.map((item) => (
+            <option value={item.id} key={item.id}>
+              {item.concept}
+            </option>
+          ))}
+        </select>
+      </div>
+      {charge && (
+        <PaymentSummary
+          charge={charge}
+          received={received}
+          balance={available}
+          amount={numericAmount}
+        />
+      )}
+      <div className="field">
+        <label htmlFor="edit-amount">Importe</label>
+        <input
+          id="edit-amount"
+          name="amount"
+          type="number"
+          min="0.01"
+          step="0.01"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          aria-invalid={overpayment}
+          aria-describedby={overpayment ? "edit-amount-error" : undefined}
+          required
+        />
+        {overpayment && (
+          <span id="edit-amount-error" className="field-error">
+            El importe supera el saldo disponible de {money(available)}.
+          </span>
+        )}
+        {state && (
+          <button
+            type="button"
+            className="text-button align-start"
+            onClick={() => setAmount(available.toFixed(2))}
+          >
+            Usar saldo completo
+          </button>
+        )}
+      </div>
+      <div className="field">
+        <label htmlFor="edit-date">Fecha recibida</label>
+        <input id="edit-date" name="date" type="date" defaultValue={payment.date} required />
+      </div>
+      <div className="field">
+        <label htmlFor="edit-method">Forma</label>
+        <select id="edit-method" name="method" defaultValue={payment.method}>
+          <option value="">Sin especificar</option>
+          <option>Efectivo</option>
+          <option>Transferencia</option>
+          <option>Tarjeta</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="edit-observation">Comentario del pago</label>
+        <input id="edit-observation" name="observation" defaultValue={payment.reason} />
+      </div>
+      <div className="field full-span">
+        <label htmlFor="edit-reason">
+          Motivo de la corrección <b>*</b>
+        </label>
+        <input id="edit-reason" name="reason" required />
+      </div>
+      <div className="form-actions full-span">
+        {blockReason && (
+          <span id="edit-block-reason" className="field-hint" role="status">
+            {blockReason}
+          </span>
+        )}
+        <button type="button" className="button secondary" data-dialog-close onClick={onCancel}>
+          Cancelar
+        </button>
+        <button
+          className="button"
+          aria-describedby={blockReason ? "edit-block-reason" : undefined}
+          disabled={Boolean(blockReason)}
+        >
+          Guardar corrección
+        </button>
+      </div>
+    </form>
   );
 }

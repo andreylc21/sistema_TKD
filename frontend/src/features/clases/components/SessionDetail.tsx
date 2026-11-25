@@ -280,6 +280,12 @@ export function SessionDetail({
           </div>
         </div>
       )}
+      {editable && (
+        <p className="help save-model-note">
+          La asistencia se guarda sola al elegir un estado. Los comentarios se guardan con el botón
+          «Guardar comentario».
+        </p>
+      )}
       {editable && pendingCount > 0 && (
         <div className="toolbar">
           <button
@@ -449,8 +455,12 @@ export function SessionDetail({
                 name="comment"
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
+                aria-describedby="attendance-comment-help"
                 placeholder="Ej. Justificó su ausencia por consulta médica"
               />
+              <span id="attendance-comment-help" className="help">
+                El comentario no se guarda hasta que pulses «Guardar comentario».
+              </span>
             </div>
             <div className="form-actions full-span">
               <button
@@ -480,7 +490,9 @@ export function SessionDetail({
           {absences
             ? `Ya hay ${absences} ${absences === 1 ? "falta registrada" : "faltas registradas"}: se conservan, y la cancelación no agrega faltas nuevas.`
             : "La cancelación no genera faltas."}{" "}
-          La clase ya no admitirá cambios de asistencia.
+          La clase ya no admitirá cambios de asistencia.{" "}
+          <strong>Esta acción no se puede deshacer.</strong> Si sólo cambió la fecha, usa
+          «Reprogramar».
         </ConfirmDialog>
       )}
       {statusAction === "Reprogramada" && (

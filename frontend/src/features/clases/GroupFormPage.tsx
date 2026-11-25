@@ -29,7 +29,7 @@ export function GroupFormPage({ group, reload }: { group?: Group; reload: () => 
   }
 
   return (
-    <FormScreen>
+    <FormScreen title="Datos del grupo">
       {error && <Notice kind="error">{error}</Notice>}
       <GroupForm initial={group} busy={busy} onSubmit={save} onCancel={() => goBack(parent)} />
     </FormScreen>

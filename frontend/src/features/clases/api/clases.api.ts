@@ -3,6 +3,8 @@ import type {
   AssignmentWrite,
   AttendanceWrite,
   GroupWrite,
+  KeepStudentWrite,
+  MoveStudentWrite,
   ParticipantWrite,
   ResourceCreated,
   SessionStatusWrite,
@@ -55,4 +57,12 @@ export function updateSessionStatus(sessionId: string, body: SessionStatusWrite)
     method: "PUT",
     body,
   });
+}
+
+export function moveStudent(groupId: string, body: MoveStudentWrite) {
+  return request<void, MoveStudentWrite>(`/api/groups/${groupId}/move`, { method: "POST", body });
+}
+
+export function keepStudent(groupId: string, body: KeepStudentWrite) {
+  return request<void, KeepStudentWrite>(`/api/groups/${groupId}/keep`, { method: "POST", body });
 }

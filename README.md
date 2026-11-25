@@ -21,7 +21,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Abre <http://localhost:8080> e inicia sesión con:
+Abre <http://localhost:8081> e inicia sesión con:
 
 - Correo: `maestra@sistematkd.local`
 - Contraseña: `SistemaTKD2026!`

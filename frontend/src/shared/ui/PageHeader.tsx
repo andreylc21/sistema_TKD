@@ -35,47 +35,53 @@ export function PageHeader({
     };
   }, [open]);
   return (
-    <header className="page-header">
-      <div className="page-heading">
-        <div className="page-title-row">
-          {help && (
-            <div
-              ref={helpRef}
-              className="page-help"
-              onMouseEnter={() => setOpen(true)}
-              onMouseLeave={() => {
-                if (!pinned) setOpen(false);
-              }}
-              onFocus={() => setOpen(true)}
-              onBlur={(event) => {
-                if (!pinned && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-              }}
-            >
-              <button
-                type="button"
-                className="help-button"
-                aria-label="Ayuda sobre esta pantalla"
-                aria-expanded={open}
-                aria-controls={helpId}
-                onClick={() => {
-                  setOpen(!pinned);
-                  setPinned(!pinned);
-                }}
-              >
-                ?
-              </button>
-              {open && (
-                <div id={helpId} className="help-popover" role="tooltip">
-                  {help}
-                </div>
-              )}
+    <>
+      {help && (
+        <div
+          ref={helpRef}
+          className="page-help"
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => {
+            if (!pinned) setOpen(false);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={(event) => {
+            if (!pinned && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+          }}
+        >
+          {open && (
+            <div id={helpId} className="help-popover" role="tooltip">
+              {help}
             </div>
           )}
-          {context && <div className="page-context">{context}</div>}
+          <button
+            type="button"
+            className="help-button"
+            aria-label="Ayuda sobre esta pantalla"
+            aria-expanded={open}
+            aria-controls={helpId}
+            onClick={() => {
+              setOpen(!pinned);
+              setPinned(!pinned);
+            }}
+          >
+            ?
+          </button>
         </div>
-      </div>
-      {actions && <div className="header-actions">{actions}</div>}
-    </header>
+      )}
+      {(context || actions) && (
+        <header className="page-header">
+          {context && (
+            <div className="page-heading">
+              <div className="page-title-row">
+                <div className="page-context">{context}</div>
+              </div>
+            </div>
+          )}
+          {actions && <div className="header-actions">{actions}</div>}
+        </header>
+      )}
+    </>
   );
 }
 export function Empty({ title, text }: { title: string; text: string }) {

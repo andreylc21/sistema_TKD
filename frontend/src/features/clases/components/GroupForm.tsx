@@ -1,7 +1,16 @@
 import { type FormEvent } from "react";
 import type { Group, GroupWrite } from "../../../shared/api/contracts";
+import { TimeRangeFields } from "../../../shared/ui/TimeRangeFields";
 
-const weekDays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"] as const;
+const weekDays = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
+] as const;
 
 export function GroupForm({
   initial,
@@ -27,6 +36,8 @@ export function GroupForm({
       ) as GroupWrite["days"],
       start: String(values.start),
       end: String(values.end),
+      minAge: values.minAge === "" ? null : Number(values.minAge),
+      maxAge: values.maxAge === "" ? null : Number(values.maxAge),
       ...(initial ? { version: initial.version } : {}),
     });
   }
@@ -53,13 +64,36 @@ export function GroupForm({
           ))}
         </div>
       </fieldset>
+      <TimeRangeFields
+        idPrefix="group"
+        startLabel="Hora de inicio"
+        endLabel="Hora de fin"
+        initialStart={start}
+        initialEnd={end}
+      />
       <div className="field">
-        <label htmlFor="group-start">Hora de inicio</label>
-        <input id="group-start" name="start" type="time" defaultValue={start} required />
+        <label htmlFor="group-min-age">
+          Edad mínima <span>(opcional)</span>
+        </label>
+        <input
+          id="group-min-age"
+          name="minAge"
+          type="number"
+          min="0"
+          defaultValue={initial?.minAge ?? ""}
+        />
       </div>
       <div className="field">
-        <label htmlFor="group-end">Hora de fin</label>
-        <input id="group-end" name="end" type="time" defaultValue={end} required />
+        <label htmlFor="group-max-age">
+          Edad máxima <span>(opcional)</span>
+        </label>
+        <input
+          id="group-max-age"
+          name="maxAge"
+          type="number"
+          min="0"
+          defaultValue={initial?.maxAge ?? ""}
+        />
       </div>
       <div className="form-actions full-span">
         {onCancel && (

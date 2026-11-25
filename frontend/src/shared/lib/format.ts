@@ -11,6 +11,20 @@ export const date = (value: string) => {
     .format(parsed)
     .replace(".", "");
 };
+/** Fecha completa para la barra superior: "Lunes 5 de octubre de 2026". */
+export const dateLong = (value: string) => {
+  const parsed = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return "Fecha no válida";
+  const text = new Intl.DateTimeFormat("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+    .format(parsed)
+    .replace(",", "");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
 export const paidFor = (
   chargeId: string,
   payments: { chargeId: string; amount: number; valid: boolean }[],

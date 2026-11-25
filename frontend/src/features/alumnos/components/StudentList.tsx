@@ -1,22 +1,43 @@
-import { useMemo, useState } from "react";
-import type { Student } from "../../../shared/api/contracts";
+import { useMemo, useState, type ReactNode } from "react";
+import type { Grade, Group, Student } from "../../../shared/api/contracts";
 import { paths } from "../../../shared/lib/paths";
 import { Link } from "../../../shared/ui/Link";
 import { Empty } from "../../../shared/ui/PageHeader";
+import { ageAlerts } from "../../clases/model/clases.model";
 
 type StudentStatusFilter = "Todos" | Student["status"];
 
-export function StudentList({ students }: { students: Student[] }) {
+type AgeFilter = "Todas" | "Menores" | "Adultos";
+
+export function StudentList({
+  students,
+  grades,
+  groups,
+  action,
+}: {
+  students: Student[];
+  grades: Grade[];
+  groups: Group[];
+  action?: ReactNode;
+}) {
+  const outOfRange = useMemo(
+    () => new Map(ageAlerts(groups, students).map((alert) => [alert.student.id, alert.group.name])),
+    [groups, students],
+  );
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StudentStatusFilter>("Todos");
+  const [gradeId, setGradeId] = useState("");
+  const [age, setAge] = useState<AgeFilter>("Todas");
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("es-MX");
     return students.filter(
       (student) =>
         (!normalizedQuery || student.name.toLocaleLowerCase("es-MX").includes(normalizedQuery)) &&
-        (status === "Todos" || student.status === status),
+        (status === "Todos" || student.status === status) &&
+        (!gradeId || student.gradeId === gradeId) &&
+        (age === "Todas" || (age === "Menores") === student.minor),
     );
-  }, [query, status, students]);
+  }, [query, status, gradeId, age, students]);
 
   return (
     <>
@@ -42,6 +63,34 @@ export function StudentList({ students }: { students: Student[] }) {
             <option>Inactivo</option>
           </select>
         </div>
+        <div className="field compact">
+          <label htmlFor="student-grade">Grado</label>
+          <select
+            id="student-grade"
+            value={gradeId}
+            onChange={(event) => setGradeId(event.target.value)}
+          >
+            <option value="">Todos</option>
+            {grades.map((grade) => (
+              <option key={grade.id} value={grade.id}>
+                {grade.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field compact">
+          <label htmlFor="student-age">Categoría</label>
+          <select
+            id="student-age"
+            value={age}
+            onChange={(event) => setAge(event.target.value as AgeFilter)}
+          >
+            <option>Todas</option>
+            <option>Menores</option>
+            <option>Adultos</option>
+          </select>
+        </div>
+        {action && <div className="list-tools-action">{action}</div>}
       </div>
       <p className="results-meta" aria-live="polite">
         <strong>{filtered.length}</strong> alumnos
@@ -65,6 +114,11 @@ export function StudentList({ students }: { students: Student[] }) {
                   <td className="primary-cell">
                     <strong>{student.name}</strong>
                     <span>{student.minor ? "Menor de edad" : "Persona adulta"}</span>
+                    {outOfRange.has(student.id) && (
+                      <span className="badge warning">
+                        Ya no entra en {outOfRange.get(student.id)}
+                      </span>
+                    )}
                   </td>
                   <td>{student.grade}</td>
                   <td>
@@ -83,7 +137,7 @@ export function StudentList({ students }: { students: Student[] }) {
           </table>
         </div>
         {!filtered.length && (
-          <Empty title="No hay coincidencias" text="Cambia la búsqueda o el estado." />
+          <Empty title="No hay coincidencias" text="Cambia la búsqueda o los filtros." />
         )}
       </div>
     </>

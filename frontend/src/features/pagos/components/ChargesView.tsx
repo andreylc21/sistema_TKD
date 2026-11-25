@@ -1,4 +1,4 @@
-import { useState } from "react";
+import type { ReactNode } from "react";
 import type { Bootstrap, Charge } from "../../../shared/api/contracts";
 import type { DueStatus, PaymentProgress } from "../../../shared/lib/format";
 import { date, paidFor } from "../../../shared/lib/format";
@@ -7,18 +7,29 @@ import { Metric, Money } from "../../../shared/ui/Money";
 import { Empty } from "../../../shared/ui/PageHeader";
 import { chargePresentation, dueTone, getPendingCharges, progressTone } from "../model/pagos.model";
 
+export type ChargeFilters = {
+  query: string;
+  progress: PaymentProgress | "";
+  due: DueStatus | "Por vencer" | "";
+  /** false = sólo cargos con saldo (lo que hay que cobrar); true = también los ya pagados. */
+  all: boolean;
+};
+
 export function ChargesOverview({
   data,
   paymentLink,
-  initialDue = "",
+  filters,
+  onFilters,
+  action,
 }: {
   data: Bootstrap;
   paymentLink?: (charge: Charge) => string;
-  initialDue?: DueStatus | "Por vencer" | "";
+  filters: ChargeFilters;
+  onFilters: (next: ChargeFilters) => void;
+  action?: ReactNode;
 }) {
-  const [query, setQuery] = useState("");
-  const [progress, setProgress] = useState<PaymentProgress | "">("");
-  const [due, setDue] = useState<DueStatus | "Por vencer" | "">(initialDue);
+  const { query, progress, due, all } = filters;
+  const hasFilters = Boolean(query || progress || due || all);
   const pending = getPendingCharges(data);
   // Recibido y total se calculan sobre los mismos cargos mostrados, para que sean comparables.
   const received = data.charges.reduce((sum, charge) => sum + paidFor(charge.id, data.payments), 0);
@@ -26,6 +37,7 @@ export function ChargesOverview({
     const student = studentName(data, charge.studentId).toLocaleLowerCase("es");
     const state = chargePresentation(charge, data);
     return (
+      (all || state.balance > 0) &&
       (!query ||
         student.includes(query.toLocaleLowerCase("es")) ||
         charge.concept.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"))) &&
@@ -62,15 +74,28 @@ export function ChargesOverview({
             id="charge-search"
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => onFilters({ ...filters, query: event.target.value })}
           />
+        </div>
+        <div className="field">
+          <label htmlFor="scope-filter">Mostrar</label>
+          <select
+            id="scope-filter"
+            value={all ? "all" : "pending"}
+            onChange={(event) => onFilters({ ...filters, all: event.target.value === "all" })}
+          >
+            <option value="pending">Con saldo</option>
+            <option value="all">Todos los cargos</option>
+          </select>
         </div>
         <div className="field">
           <label htmlFor="progress-filter">Avance de pago</label>
           <select
             id="progress-filter"
             value={progress}
-            onChange={(event) => setProgress(event.target.value as PaymentProgress | "")}
+            onChange={(event) =>
+              onFilters({ ...filters, progress: event.target.value as PaymentProgress | "" })
+            }
           >
             <option value="">Todos</option>
             <option>Sin pagos</option>
@@ -83,7 +108,9 @@ export function ChargesOverview({
           <select
             id="due-filter"
             value={due}
-            onChange={(event) => setDue(event.target.value as DueStatus | "Por vencer" | "")}
+            onChange={(event) =>
+              onFilters({ ...filters, due: event.target.value as DueStatus | "Por vencer" | "" })
+            }
           >
             <option value="">Todos</option>
             <option value="Por vencer">Vence hoy y próximos</option>
@@ -93,6 +120,16 @@ export function ChargesOverview({
             <option>Vencido</option>
           </select>
         </div>
+        {hasFilters && (
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => onFilters({ query: "", progress: "", due: "", all: false })}
+          >
+            Limpiar filtros
+          </button>
+        )}
+        {action && <div className="toolbar-action">{action}</div>}
       </div>
       <p className="results-meta">
         <strong>{rows.length}</strong> {rows.length === 1 ? "cargo" : "cargos"}

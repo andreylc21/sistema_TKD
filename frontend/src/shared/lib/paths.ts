@@ -1,5 +1,4 @@
 // URL de cada pantalla. La jerarquía de la URL coincide con las migas de pan del encabezado.
-export type PaymentsTab = "cobros" | "saldos" | "pedidos";
 export type ClassesView = "day" | "groups";
 
 const id = (value: string) => encodeURIComponent(value);
@@ -27,13 +26,15 @@ export const paths = {
   sesion: (sessionId: string) => `/clases/sesiones/${id(sessionId)}`,
   sesionNota: (sessionId: string, studentId: string) =>
     `/clases/sesiones/${id(sessionId)}/alumnos/${id(studentId)}/nota`,
-  pagos: (tab: PaymentsTab = "cobros", due?: string) =>
-    `${tab === "cobros" ? "/pagos" : `/pagos/${tab}`}${query({ vencimiento: due })}`,
-  pagoNuevo: (tab: Exclude<PaymentsTab, "pedidos"> = "cobros", chargeId?: string) =>
-    `${tab === "cobros" ? "/pagos" : `/pagos/${tab}`}/registrar-pago${query({ cargo: chargeId })}`,
-  pedidoNuevo: "/pagos/pedidos/nuevo",
-  pedido: (orderId: string) => `/pagos/pedidos/${id(orderId)}`,
+  pagos: (due?: string, filters: { q?: string; progress?: string; all?: boolean } = {}) =>
+    `/pagos${query({ vencimiento: due, q: filters.q, avance: filters.progress, todos: filters.all ? "1" : undefined })}`,
+  pagoNuevo: (chargeId?: string, studentId?: string) =>
+    `/pagos/registrar-pago${query({ cargo: chargeId, alumno: studentId })}`,
+  pedidos: "/pedidos",
+  pedidoNuevo: "/pedidos/nuevo",
+  pedido: (orderId: string) => `/pedidos/${id(orderId)}`,
   examenes: "/examenes",
+  examenNuevo: "/examenes/nuevo",
   reportes: "/reportes",
   configuracion: "/configuracion",
 };

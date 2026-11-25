@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { date, dueStatus, paidFor, paymentProgress } from "./format";
+import { date, dateLong, dueStatus, paidFor, paymentProgress } from "./format";
 
 describe("dueStatus", () => {
   it("marks an unpaid past charge as overdue", () => {
@@ -36,6 +36,12 @@ describe("paidFor", () => {
         { chargeId: "charge-2", amount: 100, valid: true },
       ]),
     ).toBe(400);
+  });
+});
+
+describe("dateLong", () => {
+  it("escribe día de la semana, día, mes y año", () => {
+    expect(dateLong("2026-10-05")).toBe("Lunes 5 de octubre de 2026");
   });
 });
 

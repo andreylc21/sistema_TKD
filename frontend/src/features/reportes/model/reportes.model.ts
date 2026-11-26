@@ -232,3 +232,81 @@ export function totalUnpaid(data: Bootstrap) {
     0,
   );
 }
+
+export type MetricKind = "money" | "count" | "percent";
+export type Metric = { label: string; kind: MetricKind; values: (number | null)[] };
+
+/** Texto de una cifra según su tipo; sin dato queda "—". */
+export function formatMetric(kind: MetricKind, value: number | null | undefined) {
+  if (value === null || value === undefined) return "—";
+  if (kind === "percent") return `${Math.round(value)}%`;
+  if (kind === "money")
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    }).format(value);
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+}
+
+/** Promedio de los meses con dato; null si ninguno lo tiene. */
+export function mean(values: (number | null)[]) {
+  const known = values.filter((value): value is number => value !== null);
+  return known.length ? known.reduce((sum, value) => sum + value, 0) / known.length : null;
+}
+
+/**
+ * Las cifras del reporte, una fila por concepto y un valor por mes. Los meses posteriores a
+ * `today` quedan sin dato (null): la tabla se va llenando conforme pasa el año.
+ */
+export function summaryMetrics(data: Bootstrap, months: string[], today: string): Metric[] {
+  const cut = monthOf(today);
+  const live = (values: number[]) => values.map((v, i) => (months[i] > cut ? null : v));
+  const income = incomeByMonth(data, months);
+  const flow = movements(data.students, months);
+  const attendance = attendanceByMonth(data, months);
+  const exams = months.map((month) => examResults(data, month));
+  const classes = months.map(
+    (month) =>
+      data.sessions.filter((item) => monthOf(item.date) === month && item.status !== "Cancelada")
+        .length,
+  );
+  return [
+    { label: "Mensualidades cobradas", kind: "money", values: live(income.map((r) => r.total)) },
+    { label: "Alumnos activos", kind: "count", values: live(flow.map((r) => r.active)) },
+    { label: "Alumnos nuevos", kind: "count", values: live(flow.map((r) => r.joined)) },
+    {
+      label: "Alumnos que se dieron de baja",
+      kind: "count",
+      values: live(flow.map((r) => r.left)),
+    },
+    {
+      label: "Asistencia",
+      kind: "percent",
+      values: attendance.map((r, i) => (months[i] > cut ? null : r.percent)),
+    },
+    { label: "Clases realizadas", kind: "count", values: live(classes) },
+    { label: "Presentaron examen", kind: "count", values: live(exams.map((r) => r.presented)) },
+    { label: "Aprobaron examen", kind: "count", values: live(exams.map((r) => r.passed)) },
+    { label: "Cobrado en exámenes", kind: "money", values: live(income.map((r) => r.Exámenes)) },
+    { label: "Cobrado en pedidos", kind: "money", values: live(income.map((r) => r.Pedidos)) },
+  ];
+}
+
+const BOM = String.fromCharCode(0xfeff);
+
+/** CSV que abre Excel (UTF-8 con BOM, separado por comas): conceptos en filas y meses en columnas. */
+export function reportCsv(metrics: Metric[], months: string[]) {
+  const cell = (text: string) => `"${text.replace(/"/g, '""')}"`;
+  const header = ["Concepto", ...months.map(monthLabel)];
+  const lines = [
+    header,
+    ...metrics.map((metric) => [
+      metric.label,
+      ...metric.values.map((value) =>
+        value === null ? "" : String(Math.round(value * 100) / 100),
+      ),
+    ]),
+  ];
+  return `${BOM}${lines.map((line) => line.map(cell).join(",")).join("\r\n")}\r\n`;
+}

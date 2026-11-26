@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { Bootstrap, CatalogItem } from "../../../shared/api/contracts";
+import type { Bootstrap, CatalogCategory, CatalogItem } from "../../../shared/api/contracts";
 import { ConfirmAction } from "../../../shared/ui/ConfirmAction";
 import { DataTable } from "../../../shared/ui/DataTable";
 import { Dialog } from "../../../shared/ui/Dialog";
@@ -8,6 +8,8 @@ import { editButtonClass, EditLabel } from "../../../shared/ui/EditButton";
 import { Money } from "../../../shared/ui/Money";
 import { Notice } from "../../../shared/ui/PageHeader";
 import { createCatalogItem, deleteCatalogItem, updateCatalogItem } from "../api/configuracion.api";
+
+const categories: CatalogCategory[] = ["Uniformes", "Equipo de protección"];
 
 /** Artículos que se venden: al registrar un pedido se eligen de aquí y el precio se llena solo. */
 export function CatalogTable({
@@ -23,54 +25,62 @@ export function CatalogTable({
 }) {
   return (
     <>
-      <DataTable
-        rows={data.catalog}
-        rowKey={(item) => item.id}
-        empty={{
-          title: "Aún no hay artículos",
-          text: 'Se agregan aquí, o al registrar un pedido con "Guardar en el catálogo".',
-        }}
-        columns={[
-          { header: "Artículo", primary: true, cell: (item) => <strong>{item.name}</strong> },
-          { header: "Tallas", cell: (item) => (item.sizes.length ? item.sizes.join(", ") : "—") },
-          { header: "Precio", cell: (item) => <Money value={item.price} /> },
-          {
-            header: "Acciones",
-            actions: true,
-            cell: (item) => (
-              <>
-                <ConfirmAction
-                  label="Borrar"
-                  title="Borrar artículo"
-                  onConfirm={async () => {
-                    await deleteCatalogItem(item.id);
-                    await reload();
-                  }}
-                >
-                  {item.name} ya no saldrá en la lista al registrar pedidos. Los pedidos que ya
-                  hiciste no cambian.
-                </ConfirmAction>
-                <DialogButton
-                  label={<EditLabel />}
-                  className={editButtonClass}
-                  title="Editar artículo"
-                >
-                  {(close) => (
-                    <CatalogForm
-                      item={item}
-                      onCancel={close}
-                      onDone={async () => {
-                        close();
+      {categories.map((category) => (
+        <section key={category} className="section-gap">
+          <h2>{category}</h2>
+          <DataTable
+            rows={data.catalog.filter((item) => item.category === category)}
+            rowKey={(item) => item.id}
+            empty={{
+              title: "Aún no hay artículos",
+              text: 'Se agregan aquí, o al registrar un pedido con "Guardar en el catálogo".',
+            }}
+            columns={[
+              { header: "Artículo", primary: true, cell: (item) => <strong>{item.name}</strong> },
+              {
+                header: "Tallas",
+                cell: (item) => (item.sizes.length ? item.sizes.join(", ") : "—"),
+              },
+              { header: "Precio", cell: (item) => <Money value={item.price} /> },
+              {
+                header: "Acciones",
+                actions: true,
+                cell: (item) => (
+                  <>
+                    <ConfirmAction
+                      label="Borrar"
+                      title="Borrar artículo"
+                      onConfirm={async () => {
+                        await deleteCatalogItem(item.id);
                         await reload();
                       }}
-                    />
-                  )}
-                </DialogButton>
-              </>
-            ),
-          },
-        ]}
-      />
+                    >
+                      {item.name} ya no saldrá en la lista al registrar pedidos. Los pedidos que ya
+                      hiciste no cambian.
+                    </ConfirmAction>
+                    <DialogButton
+                      label={<EditLabel />}
+                      className={editButtonClass}
+                      title="Editar artículo"
+                    >
+                      {(close) => (
+                        <CatalogForm
+                          item={item}
+                          onCancel={close}
+                          onDone={async () => {
+                            close();
+                            await reload();
+                          }}
+                        />
+                      )}
+                    </DialogButton>
+                  </>
+                ),
+              },
+            ]}
+          />
+        </section>
+      ))}
       {adding && (
         <Dialog title="Agregar artículo" onClose={onCloseAdd}>
           <CatalogForm
@@ -102,6 +112,7 @@ function CatalogForm({
     const values = Object.fromEntries(new FormData(event.currentTarget));
     const body = {
       name: String(values.name),
+      category: String(values.category) as CatalogCategory,
       sizes: String(values.sizes)
         .split(",")
         .map((size) => size.trim())
@@ -137,6 +148,18 @@ function CatalogForm({
           required
           placeholder="Ej. Dobok"
         />
+      </div>
+      <div className="field full-span">
+        <label htmlFor="catalog-category">Categoría</label>
+        <select
+          id="catalog-category"
+          name="category"
+          defaultValue={item?.category ?? "Equipo de protección"}
+        >
+          {categories.map((category) => (
+            <option key={category}>{category}</option>
+          ))}
+        </select>
       </div>
       <div className="field">
         <label htmlFor="catalog-sizes">

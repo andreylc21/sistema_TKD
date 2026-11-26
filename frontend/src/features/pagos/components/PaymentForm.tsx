@@ -63,7 +63,7 @@ export function PaymentForm({
   const numericAmount = Number(amount || 0);
   const overpayment = Boolean(state && numericAmount > state.balance);
   const blockReason = !studentId
-    ? "Selecciona un alumno."
+    ? ""
     : !selected
       ? "Selecciona el cargo que se está pagando."
       : numericAmount <= 0
@@ -133,6 +133,7 @@ export function PaymentForm({
               next.length === 1 ? chargePresentation(next[0], data).balance.toFixed(2) : "",
             );
           }}
+          disabled={Boolean(startStudent)}
           required
         >
           <option value="">Selecciona un alumno</option>
@@ -237,9 +238,6 @@ export function PaymentForm({
         </label>
         <input id="observation" name="observation" placeholder="Ej. Pagó en efectivo" />
       </div>
-      <p className="help full-span">
-        Registro manual: no comprueba automáticamente una transferencia bancaria.
-      </p>
       <div className="form-actions full-span">
         <button type="button" className="button danger" onClick={onCancel}>
           Cancelar

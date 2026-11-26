@@ -13,16 +13,21 @@ import (
 
 func (s *Server) updateSchool(c *gin.Context) {
 	var in struct {
-		Name  string `json:"name"`
-		Owner string `json:"owner"`
-		Fee   string `json:"fee"`
+		Name    string `json:"name"`
+		Owner   string `json:"owner"`
+		Fee     string `json:"fee"`
+		ExamFee string `json:"examFee"`
 	}
 	name, owner := "", ""
 	if c.ShouldBindJSON(&in) == nil {
 		name, owner = strings.TrimSpace(in.Name), strings.TrimSpace(in.Owner)
 	}
 	fee, fe := pagos.ParseMoney(in.Fee)
-	if name == "" || utf8.RuneCountInString(name) > 80 || owner == "" || utf8.RuneCountInString(owner) > 80 || fe != nil {
+	examFee, xe := int64(-1), error(nil)
+	if strings.TrimSpace(in.ExamFee) != "" {
+		examFee, xe = pagos.ParseMoney(in.ExamFee)
+	}
+	if xe != nil || name == "" || utf8.RuneCountInString(name) > 80 || owner == "" || utf8.RuneCountInString(owner) > 80 || fe != nil {
 		fail(c, 400, "Revisa el nombre, la propietaria y la mensualidad")
 		return
 	}
@@ -32,7 +37,7 @@ func (s *Server) updateSchool(c *gin.Context) {
 		return
 	}
 	defer tx.Rollback(c)
-	if _, e = tx.Exec(c, `UPDATE schools SET name=$1,monthly_fee_cents=$2 WHERE id=$3`, name, fee, c.GetString("school")); e == nil {
+	if _, e = tx.Exec(c, `UPDATE schools SET name=$1,monthly_fee_cents=$2,exam_fee_cents=CASE WHEN $4::bigint>=0 THEN $4 ELSE exam_fee_cents END WHERE id=$3`, name, fee, c.GetString("school"), examFee); e == nil {
 		_, e = tx.Exec(c, `UPDATE users SET owner_name=$1 WHERE id=$2 AND school_id=$3`, owner, c.GetString("user"), c.GetString("school"))
 	}
 	if e != nil || tx.Commit(c) != nil {
@@ -302,19 +307,28 @@ func (s *Server) removeGrade(c *gin.Context) {
 }
 
 type catalogInput struct {
-	Name  string   `json:"name"`
-	Sizes []string `json:"sizes"`
-	Price string   `json:"price"`
+	Name     string   `json:"name"`
+	Category string   `json:"category"`
+	Sizes    []string `json:"sizes"`
+	Price    string   `json:"price"`
 }
 
 // parseCatalog valida y normaliza un artículo del catálogo.
-func parseCatalog(c *gin.Context) (name string, sizes []string, price int64, ok bool) {
+func parseCatalog(c *gin.Context) (name, category string, sizes []string, price int64, ok bool) {
 	var in catalogInput
 	if c.ShouldBindJSON(&in) != nil {
 		fail(c, 400, "Revisa los datos del artículo")
 		return
 	}
 	name = strings.TrimSpace(in.Name)
+	category = in.Category
+	if category == "" {
+		category = "Equipo de protección"
+	}
+	if category != "Uniformes" && category != "Equipo de protección" {
+		fail(c, 400, "Elige una categoría válida")
+		return
+	}
 	cents, e := pagos.ParseMoney(in.Price)
 	if name == "" || utf8.RuneCountInString(name) > 60 || e != nil || cents < 0 {
 		fail(c, 400, "Escribe el nombre y un precio válido")
@@ -330,16 +344,16 @@ func parseCatalog(c *gin.Context) (name string, sizes []string, price int64, ok 
 		seen[strings.ToLower(size)] = true
 		sizes = append(sizes, size)
 	}
-	return name, sizes, cents, true
+	return name, category, sizes, cents, true
 }
 
 func (s *Server) createCatalogItem(c *gin.Context) {
-	name, sizes, price, ok := parseCatalog(c)
+	name, category, sizes, price, ok := parseCatalog(c)
 	if !ok {
 		return
 	}
 	var id string
-	e := s.DB.QueryRow(c, `INSERT INTO catalog_items(school_id,name,sizes,price_cents) VALUES($1,$2,$3,$4) RETURNING id::text`, c.GetString("school"), name, sizes, price).Scan(&id)
+	e := s.DB.QueryRow(c, `INSERT INTO catalog_items(school_id,name,sizes,price_cents,category) VALUES($1,$2,$3,$4,$5) RETURNING id::text`, c.GetString("school"), name, sizes, price, category).Scan(&id)
 	if e != nil {
 		if isDuplicate(e) {
 			fail(c, 409, "Ya existe un artículo con ese nombre")
@@ -352,11 +366,11 @@ func (s *Server) createCatalogItem(c *gin.Context) {
 }
 
 func (s *Server) updateCatalogItem(c *gin.Context) {
-	name, sizes, price, ok := parseCatalog(c)
+	name, category, sizes, price, ok := parseCatalog(c)
 	if !ok {
 		return
 	}
-	tag, e := s.DB.Exec(c, `UPDATE catalog_items SET name=$1,sizes=$2,price_cents=$3 WHERE id=$4 AND school_id=$5`, name, sizes, price, c.Param("id"), c.GetString("school"))
+	tag, e := s.DB.Exec(c, `UPDATE catalog_items SET name=$1,sizes=$2,price_cents=$3,category=$6 WHERE id=$4 AND school_id=$5`, name, sizes, price, c.Param("id"), c.GetString("school"), category)
 	if e != nil {
 		if isDuplicate(e) {
 			fail(c, 409, "Ya existe un artículo con ese nombre")

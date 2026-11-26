@@ -3,12 +3,13 @@ import type { Bootstrap, Exam, ExamWrite } from "../../shared/api/contracts";
 import { date, money } from "../../shared/lib/format";
 import { goBack } from "../../shared/lib/navigation";
 import { paths } from "../../shared/lib/paths";
+import { DataTable } from "../../shared/ui/DataTable";
 import { Dialog } from "../../shared/ui/Dialog";
 import { FormScreen } from "../../shared/ui/FormScreen";
 import { Link } from "../../shared/ui/Link";
 import { SearchInput } from "../../shared/ui/SearchInput";
 import { Status } from "../../shared/ui/Status";
-import { Empty, Notice, PageHeader } from "../../shared/ui/PageHeader";
+import { Notice, PageHeader } from "../../shared/ui/PageHeader";
 import {
   createExam,
   enrollExam,
@@ -20,6 +21,7 @@ import {
   canEditExam,
   defaultDeadline,
   examKindLabel,
+  examName,
   resultLabel,
   sortExams,
   targetLabel,
@@ -27,7 +29,7 @@ import {
 
 type Props = { data: Bootstrap; reload: () => Promise<void> };
 
-export function ExamenesPage({ data, reload }: Props) {
+export function ExamenesPage({ data }: Props) {
   const { pending, history } = useMemo(
     () => sortExams(data.exams, data.demoDate),
     [data.exams, data.demoDate],
@@ -38,6 +40,7 @@ export function ExamenesPage({ data, reload }: Props) {
   const nameOf = (id: string) => data.students.find((student) => student.id === id)?.name ?? "—";
   const matches = (exam: Exam) =>
     !text ||
+    examName(exam).toLocaleLowerCase("es").includes(text) ||
     examKindLabel(exam.kind).toLocaleLowerCase("es").includes(text) ||
     exam.entries.some((entry) => nameOf(entry.studentId).toLocaleLowerCase("es").includes(text));
   const shown = (tab === "pending" ? pending : history).filter(matches);
@@ -122,40 +125,94 @@ export function ExamenesPage({ data, reload }: Props) {
       <div className="toolbar">
         <SearchInput
           id="exam-search"
-          label="Buscar alumno o tipo de examen"
+          label="Buscar por nombre de examen o alumno"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
-      {shown.length ? (
-        shown.map((exam) => (
-          <ExamCard
-            key={exam.id}
-            exam={exam}
-            data={data}
-            nameOf={nameOf}
-            query={text}
-            reload={reload}
-          />
-        ))
-      ) : (
-        <section className="card">
-          <Empty
-            title={
-              text
-                ? "Sin coincidencias"
-                : tab === "pending"
-                  ? "Sin exámenes en curso"
-                  : "Sin historial todavía"
-            }
-            text={
-              tab === "pending"
-                ? "Programa un parcial o el examen de cinta negra para inscribir alumnos."
-                : "Aquí aparecen los exámenes que ya se realizaron y tienen todos sus resultados."
-            }
-          />
-        </section>
-      )}
+      <DataTable
+        rows={shown}
+        rowKey={(exam) => exam.id}
+        empty={{
+          title: text
+            ? "Sin coincidencias"
+            : tab === "pending"
+              ? "Sin exámenes en curso"
+              : "Sin historial todavía",
+          text:
+            tab === "pending"
+              ? "Programa un parcial o el examen de cinta negra para inscribir alumnos."
+              : "Aquí aparecen los exámenes que ya se realizaron y tienen todos sus resultados.",
+        }}
+        columns={[
+          {
+            header: "Examen",
+            primary: true,
+            cell: (exam) => (
+              <>
+                <Link className="row-link" to={paths.examen(exam.id)}>
+                  <strong>{examName(exam)}</strong>
+                </Link>
+                {exam.name.trim() && <span>{examKindLabel(exam.kind)}</span>}
+              </>
+            ),
+          },
+          { header: "Fecha", cell: (exam) => date(exam.date) },
+          { header: "Costo", cell: (exam) => money(exam.fee) },
+          { header: "Inscritos", cell: (exam) => exam.entries.length },
+          ...(tab === "history"
+            ? [
+                {
+                  header: "Resultados",
+                  cell: (exam: Exam) => {
+                    const passed = exam.entries.filter((e) => e.result === "passed").length;
+                    return `${passed} aprobaron · ${exam.entries.length - passed} no`;
+                  },
+                },
+              ]
+            : []),
+          {
+            header: "Acciones",
+            actions: true,
+            cell: (exam) => (
+              <>
+                {data.demoDate < exam.date && (
+                  <Link className="button small" to={paths.examen(exam.id, true)}>
+                    Inscribir alumno
+                  </Link>
+                )}
+                {canEditExam(exam) && (
+                  <Link className="button secondary small" to={paths.examenEditar(exam.id)}>
+                    Editar
+                  </Link>
+                )}
+              </>
+            ),
+          },
+        ]}
+      />
+    </>
+  );
+}
+
+export function ExamDetailPage({
+  data,
+  exam,
+  reload,
+  enroll = false,
+}: Props & { exam: Exam; enroll?: boolean }) {
+  const nameOf = (id: string) => data.students.find((student) => student.id === id)?.name ?? "—";
+  return (
+    <>
+      <PageHeader help="Aquí ves los inscritos del examen. Aprobó / No aprobó se habilita desde la fecha del examen." />
+      <ExamCard
+        exam={exam}
+        data={data}
+        nameOf={nameOf}
+        query=""
+        reload={reload}
+        startEnrolling={enroll}
+      />
     </>
   );
 }
@@ -166,12 +223,14 @@ function ExamCard({
   nameOf,
   query,
   reload,
+  startEnrolling = false,
 }: {
   exam: Exam;
   data: Bootstrap;
   nameOf: (id: string) => string;
   query: string;
   reload: () => Promise<void>;
+  startEnrolling?: boolean;
 }) {
   const [studentId, setStudentId] = useState("");
   const [reason, setReason] = useState("");
@@ -193,7 +252,7 @@ function ExamCard({
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
   const progress = studentId ? data.examProgress[studentId] : undefined;
   const [method, setMethod] = useState("Efectivo");
-  const [enrolling, setEnrolling] = useState(false);
+  const [enrolling, setEnrolling] = useState(startEnrolling);
   const open = data.demoDate < exam.date;
   const started = data.demoDate >= exam.date;
   const lacksRequirements = exam.kind === "black" && progress && !progress.ready;
@@ -231,7 +290,21 @@ function ExamCard({
     <section className="card section-gap">
       <div className="card-body">
         <div className="card-title-row">
-          <h3 className="exam-title">{examKindLabel(exam.kind)}</h3>
+          <h3 className="exam-title">{examName(exam)}</h3>
+          <dl className="exam-facts">
+            <div>
+              <dt>Fecha</dt>
+              <dd>{date(exam.date)}</dd>
+            </div>
+            <div>
+              <dt>Costo</dt>
+              <dd>{money(exam.fee)}</dd>
+            </div>
+            <div>
+              <dt>Inscritos</dt>
+              <dd>{exam.entries.length}</dd>
+            </div>
+          </dl>
           <div className="inline-actions">
             {open && (
               <button className="button small" onClick={() => setEnrolling(true)}>
@@ -245,13 +318,6 @@ function ExamCard({
             )}
           </div>
         </div>
-        <ul className="chips">
-          <li className="chip">Fecha {date(exam.date)}</li>
-          <li className="chip">Costo {money(exam.fee)}</li>
-          <li className="chip">
-            {exam.entries.length} {exam.entries.length === 1 ? "inscrito" : "inscritos"}
-          </li>
-        </ul>
         {error && <Notice kind="error">{error}</Notice>}
         {exam.entries.length > 0 && (
           <div className="table-wrap">
@@ -289,7 +355,7 @@ function ExamCard({
                             ? "success"
                             : entry.result === "failed"
                               ? "danger"
-                              : "neutral"
+                              : "warning"
                         }
                       >
                         {resultLabel[entry.result]}
@@ -440,6 +506,7 @@ function ExamForm({ data, reload, exam }: Props & { exam?: Exam }) {
   const [error, setError] = useState("");
   const idempotencyKey = useRef(crypto.randomUUID());
   const [kind, setKind] = useState<ExamWrite["kind"]>(exam?.kind ?? "partial");
+  const [nameValue, setNameValue] = useState(exam?.name ?? "");
   const [examDate, setExamDate] = useState(exam?.date ?? data.demoDate);
   // El plazo ya no se pide: se guarda una semana antes del examen.
   const deadline = defaultDeadline(examDate);
@@ -453,10 +520,16 @@ function ExamForm({ data, reload, exam }: Props & { exam?: Exam }) {
     setError("");
     try {
       if (exam) {
-        await updateExam(exam.id, { date: examDate, fee, paymentDeadline: deadline });
+        await updateExam(exam.id, {
+          kind,
+          name: nameValue.trim(),
+          date: examDate,
+          fee,
+          paymentDeadline: deadline,
+        });
       } else {
         await createExam(
-          { kind, date: examDate, fee, paymentDeadline: deadline },
+          { kind, name: nameValue.trim(), date: examDate, fee, paymentDeadline: deadline },
           idempotencyKey.current,
         );
       }
@@ -477,8 +550,8 @@ function ExamForm({ data, reload, exam }: Props & { exam?: Exam }) {
       <PageHeader
         help={
           exam
-            ? "Cambia la fecha o el costo. Si cambias la fecha, los cobros de los alumnos inscritos se ajustan solos."
-            : "Elige si es un parcial o el examen anual de cinta negra, la fecha y el costo. Al inscribir a un alumno se registra su pago; la inscripción cierra el día del examen."
+            ? "Cambia el nombre, el tipo, la fecha o el costo. Si cambias la fecha, los cobros de los alumnos inscritos se ajustan solos. El costo ya no se puede cambiar cuando hay pagos registrados; si te equivocaste, anula primero esos pagos en Pagos. Si dejas el nombre vacío se usa Examen + tipo + fecha."
+            : "Elige si es un parcial o el examen anual de cinta negra, la fecha y el costo. Al inscribir a un alumno se registra su pago; la inscripción cierra el día del examen. Si dejas el nombre vacío se usa Examen + tipo + fecha."
         }
       />
       <FormScreen title="Datos del examen">
@@ -493,12 +566,23 @@ function ExamForm({ data, reload, exam }: Props & { exam?: Exam }) {
             <select
               id="exam-kind"
               value={kind}
-              disabled={Boolean(exam)}
               onChange={(event) => setKind(event.target.value as ExamWrite["kind"])}
             >
               <option value="partial">Parcial</option>
               <option value="black">Cinta negra</option>
             </select>
+          </div>
+          <div className="field full-span">
+            <label htmlFor="exam-name">
+              Nombre <span>(opcional)</span>
+            </label>
+            <input
+              id="exam-name"
+              value={nameValue}
+              maxLength={80}
+              onChange={(event) => setNameValue(event.target.value)}
+              placeholder="Ej. Parcial de octubre"
+            />
           </div>
           <div className="field">
             <label htmlFor="exam-date">Fecha</label>
@@ -519,15 +603,10 @@ function ExamForm({ data, reload, exam }: Props & { exam?: Exam }) {
               min="0"
               step="0.01"
               inputMode="decimal"
-              defaultValue={exam ? String(exam.fee) : "0"}
+              defaultValue={exam ? String(exam.fee) : String(data.school.examFee)}
               readOnly={hasPayments}
               required
             />
-            {hasPayments && (
-              <span className="field-hint">
-                Ya hay pagos de este examen; el costo no se puede cambiar.
-              </span>
-            )}
           </div>
           <div className="form-actions full-span">
             <button type="button" className="button danger" onClick={() => goBack(paths.examenes)}>

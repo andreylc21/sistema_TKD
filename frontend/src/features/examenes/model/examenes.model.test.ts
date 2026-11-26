@@ -45,6 +45,7 @@ describe("examenes.model", () => {
     const exam = (id: string, date: string): Exam => ({
       id,
       kind: "partial",
+      name: "",
       date,
       fee: 0,
       paymentDeadline: date,
@@ -80,6 +81,7 @@ describe("pago del examen", () => {
     const exam = (id: string, date: string, studentId: string): Exam => ({
       id,
       kind: "partial",
+      name: "",
       date,
       fee: 0,
       paymentDeadline: date,

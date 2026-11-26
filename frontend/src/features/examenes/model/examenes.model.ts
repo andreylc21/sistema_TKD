@@ -1,7 +1,12 @@
 import type { Exam, ExamProgress } from "../../../shared/api/contracts";
+import { date } from "../../../shared/lib/format";
 
 export const examKindLabel = (kind: Exam["kind"]) =>
   kind === "black" ? "Examen de cinta negra" : "Examen parcial";
+
+/** Nombre con que se muestra el examen: el que le puso la maestra o, si no, "Examen parcial · 08/10/2026". */
+export const examName = (exam: Exam) =>
+  exam.name.trim() || `${examKindLabel(exam.kind)} · ${date(exam.date)}`;
 
 export const resultLabel = { pending: "Pendiente", passed: "Aprobó", failed: "No aprobó" } as const;
 

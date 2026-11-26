@@ -55,6 +55,16 @@ describe("matchRoute", () => {
     expect(matchRoute(paths.alumno("A/01"))).toEqual({ name: "alumno", studentId: "A/01" });
     expect(matchRoute(paths.examenes)).toEqual({ name: "examenes" });
     expect(matchRoute(paths.examenNuevo)).toEqual({ name: "examen-nuevo" });
+    expect(matchRoute(paths.examen("x"))).toEqual({
+      name: "examen",
+      examId: "x",
+      enroll: false,
+    });
+    expect(matchRoute(paths.examen("x", true))).toEqual({
+      name: "examen",
+      examId: "x",
+      enroll: true,
+    });
     expect(matchRoute(paths.examenEditar("x"))).toEqual({ name: "examen-editar", examId: "x" });
     expect(matchRoute("/desconocida")).toEqual({ name: "no-encontrada" });
     expect(matchRoute("/alumnos/s1/otra")).toEqual({ name: "no-encontrada" });

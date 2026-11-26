@@ -15,6 +15,7 @@ export type Route =
   | { name: "pedido-nuevo" }
   | { name: "examenes" }
   | { name: "examen-nuevo" }
+  | { name: "examen"; examId: string; enroll?: boolean }
   | { name: "examen-editar"; examId: string }
   | { name: "reportes" }
   | { name: "configuracion" }
@@ -82,7 +83,10 @@ export function matchRoute(url: string): Route {
       break;
     case "examenes":
       if (size === 1) return { name: "examenes" };
-      if (size === 2 && a === "nuevo") return { name: "examen-nuevo" };
+      if (size === 2)
+        return a === "nuevo"
+          ? { name: "examen-nuevo" }
+          : { name: "examen", examId: a, enroll: param("inscribir") === "1" };
       if (size === 3 && b === "editar") return { name: "examen-editar", examId: a };
       break;
     case "reportes":

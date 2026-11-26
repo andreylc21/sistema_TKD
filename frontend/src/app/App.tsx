@@ -16,7 +16,13 @@ import { GruposPage } from "../features/clases/GruposPage";
 import { SessionDetail } from "../features/clases/components/SessionDetail";
 import { PagosPage, PaymentPage } from "../features/pagos/PagosPage";
 import { OrderFormPage, PedidosPage } from "../features/pedidos/PedidosPage";
-import { ExamEditPage, ExamenesPage, ExamFormPage } from "../features/examenes/ExamenesPage";
+import { examName } from "../features/examenes/model/examenes.model";
+import {
+  ExamDetailPage,
+  ExamEditPage,
+  ExamenesPage,
+  ExamFormPage,
+} from "../features/examenes/ExamenesPage";
 import { ReportesPage } from "../features/reportes/ReportesPage";
 import { ErrorBoundary } from "../shared/ui/ErrorBoundary";
 import { ConfiguracionPage } from "../features/configuracion/ConfiguracionPage";
@@ -281,6 +287,24 @@ function resolveScreen(
         key: "examen-nuevo",
         page: <ExamFormPage data={data} reload={reload} />,
       };
+    case "examen": {
+      const exam = data.exams.find((item) => item.id === route.examId);
+      const examenesCrumb = crumb("Exámenes", paths.examenes);
+      if (!exam)
+        return missing(
+          "examenes",
+          [examenesCrumb],
+          "Examen no encontrado",
+          examenesCrumb.to,
+          "los exámenes",
+        );
+      return {
+        section: "examenes",
+        crumbs: [examenesCrumb, crumb(examName(exam))],
+        key: `examen:${exam.id}`,
+        page: <ExamDetailPage data={data} exam={exam} reload={reload} enroll={route.enroll} />,
+      };
+    }
     case "examen-editar": {
       const exam = data.exams.find((item) => item.id === route.examId);
       const examenesCrumb = crumb("Exámenes", paths.examenes);

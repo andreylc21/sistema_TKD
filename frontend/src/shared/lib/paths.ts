@@ -25,6 +25,8 @@ export const paths = {
   pedidoNuevo: "/pedidos/nuevo",
   examenes: "/examenes",
   examenNuevo: "/examenes/nuevo",
+  examen: (examId: string, enroll = false) =>
+    `/examenes/${id(examId)}${enroll ? "?inscribir=1" : ""}`,
   examenEditar: (examId: string) => `/examenes/${id(examId)}/editar`,
   reportes: "/reportes",
   configuracion: "/configuracion",

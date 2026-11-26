@@ -1,165 +1,134 @@
 import { useMemo, useState } from "react";
 import type { Bootstrap } from "../../shared/api/contracts";
-import { Money } from "../../shared/ui/Money";
+import { DataTable } from "../../shared/ui/DataTable";
 import { PageHeader } from "../../shared/ui/PageHeader";
-import { StatCard } from "../../shared/ui/StatCard";
-import { Tabs } from "../../shared/ui/Tabs";
-import { BarChart, LineChart } from "./components/Charts";
 import {
-  attendanceByMonth,
-  examResults,
-  incomeByMonth,
-  monthLabel,
+  formatMetric,
+  mean,
   monthOf,
   monthsEnding,
-  movements,
+  reportCsv,
+  summaryMetrics,
+  type Metric,
 } from "./model/reportes.model";
 
-const trailing = 6;
-const views = [
-  { id: "ingresos", label: "Ingresos" },
-  { id: "alumnos", label: "Alumnos" },
-  { id: "asistencia", label: "Asistencia" },
-] as const;
-type View = (typeof views)[number]["id"];
+const ranges = [1, 3, 6, 12] as const;
+const shortMonth = (month: string) =>
+  new Intl.DateTimeFormat("es-MX", { month: "short" })
+    .format(new Date(`${month}-01T12:00:00`))
+    .replace(".", "");
 
-/** "▲ $500.00 que el mes anterior" / "▼ …" / "Igual que el mes anterior", con su tendencia. */
-function change(now: number, before: number | undefined, render: (value: number) => string) {
-  if (before === undefined) return { text: undefined, trend: undefined } as const;
-  const diff = now - before;
-  if (Math.abs(diff) < 0.005)
-    return { text: "Igual que el mes anterior", trend: undefined } as const;
-  return {
-    text: `${diff > 0 ? "▲" : "▼"} ${render(Math.abs(diff))} que el mes anterior`,
-    trend: diff > 0 ? "up" : "down",
-  } as const;
+/** Verde si el mes queda por encima del promedio de su fila y rojo si por debajo (al revés en bajas). */
+function tone(item: Metric, value: number | null) {
+  const average = mean(item.values);
+  if (value === null || average === null || Math.abs(value - average) < 0.005) return undefined;
+  const above = value > average;
+  const good = item.label === "Alumnos que se dieron de baja" ? !above : above;
+  return good ? "trend-up" : "trend-down";
+}
+
+/** Descarga un archivo de texto sin pasar por el servidor. */
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export function ReportesPage({ data }: { data: Bootstrap }) {
   const current = monthOf(data.demoDate);
-  const choices = useMemo(() => monthsEnding(current, 12).reverse(), [current]);
-  const [month, setMonth] = useState(current);
-  const [view, setView] = useState<View>("ingresos");
-  const months = useMemo(() => monthsEnding(month, trailing), [month]);
-  const income = useMemo(() => incomeByMonth(data, months), [data, months]);
-  const flow = useMemo(() => movements(data.students, months), [data.students, months]);
-  const attendance = useMemo(() => attendanceByMonth(data, months), [data, months]);
-  const exams = useMemo(() => examResults(data, month), [data, month]);
+  const thisYear = Number(current.slice(0, 4));
+  const firstYear = useMemo(() => {
+    const years = [
+      ...data.students.map((student) => student.enrollmentDate),
+      ...data.payments.map((payment) => payment.date),
+      ...data.sessions.map((session) => session.date),
+    ].map((day) => Number(day.slice(0, 4)));
+    return Math.min(thisYear, ...years.filter(Boolean));
+  }, [data, thisYear]);
+  const years = Array.from({ length: thisYear - firstYear + 1 }, (_, i) => thisYear - i);
+  const [year, setYear] = useState(thisYear);
+  const [range, setRange] = useState<(typeof ranges)[number]>(3);
 
-  const last = months.length - 1;
-  const now = { income: income[last], flow: flow[last], attendance: attendance[last] };
-  const before = {
-    income: income[last - 1],
-    flow: flow[last - 1],
-    attendance: attendance[last - 1],
-  };
-  const money = (value: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value);
-  const incomeChange = change(now.income.total, before.income?.total, money);
-  const peopleChange = change(now.flow.active, before.flow?.active, String);
-  const attendanceChange =
-    now.attendance.percent !== null && before.attendance?.percent != null
-      ? change(now.attendance.percent, before.attendance.percent, (value) => `${value} pts`)
-      : { text: undefined, trend: undefined };
-  const net = now.flow.joined - now.flow.left;
+  const months = useMemo(() => monthsEnding(`${year}-12`, 12), [year]);
+  const metrics = useMemo(() => summaryMetrics(data, months, data.demoDate), [data, months]);
+  const lastShown = year === thisYear ? current : `${year}-12`;
+
+  function exportRange() {
+    const exportMonths = monthsEnding(lastShown, range);
+    const text = reportCsv(summaryMetrics(data, exportMonths, data.demoDate), exportMonths);
+    download(`reporte-${exportMonths[0]}_a_${exportMonths[exportMonths.length - 1]}.csv`, text);
+  }
 
   return (
     <>
-      <PageHeader help="Cómo va la escuela en el mes elegido, comparado con el anterior. El ingreso cuenta solo las mensualidades; lo cobrado por exámenes y pedidos se entrega a la institución o al proveedor, así que no cuenta como ingreso de la escuela. El detalle de cada pago está en Pagos." />
+      <PageHeader help="Cómo va la escuela en el año elegido, mes por mes; la tabla se va llenando conforme pasan los meses. El ingreso cuenta solo las mensualidades; lo cobrado por exámenes y pedidos se entrega a la institución o al proveedor, así que no cuenta como ingreso de la escuela. Descargar Excel baja el último mes, 3, 6 o 12 meses. El detalle de cada pago está en Pagos." />
       <div className="toolbar no-print">
         <div className="field">
-          <label htmlFor="report-month">Periodo</label>
+          <label htmlFor="report-year">Año</label>
           <select
-            id="report-month"
-            value={month}
-            onChange={(event) => setMonth(event.target.value)}
+            id="report-year"
+            value={year}
+            onChange={(event) => setYear(Number(event.target.value))}
           >
-            {choices.map((choice) => (
+            {years.map((choice) => (
               <option key={choice} value={choice}>
-                {monthLabel(choice)}
+                {choice}
               </option>
             ))}
           </select>
         </div>
         <div className="toolbar-action">
+          <div className="field">
+            <label htmlFor="report-range">Descargar</label>
+            <select
+              id="report-range"
+              value={range}
+              onChange={(event) => setRange(Number(event.target.value) as (typeof ranges)[number])}
+            >
+              {ranges.map((choice) => (
+                <option key={choice} value={choice}>
+                  {choice === 1 ? "Último mes" : `Últimos ${choice} meses`}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="button export" onClick={exportRange}>
+            Descargar Excel
+          </button>
           <button className="button export" onClick={() => window.print()}>
             Guardar PDF
           </button>
         </div>
       </div>
-      <p className="print-only report-title">Reporte · {monthLabel(month)}</p>
+      <p className="print-only report-title">
+        {data.school.name} · Reporte {year}
+      </p>
 
-      <div className="stat-grid">
-        <StatCard
-          label="Cobrado en mensualidades"
-          value={<Money value={now.income.total} />}
-          note={incomeChange.text}
-          trend={incomeChange.trend}
+      <section className="section-gap">
+        <h2 className="no-print">Resumen {year}</h2>
+        <DataTable
+          rows={metrics}
+          rowKey={(item) => item.label}
+          empty={{ title: "Sin datos", text: "Todavía no hay movimientos en este año." }}
+          columns={[
+            { header: "Concepto", primary: true, cell: (item) => <strong>{item.label}</strong> },
+            ...months.map((month) => ({
+              header: shortMonth(month),
+              cell: (item: Metric) => {
+                const value = item.values[months.indexOf(month)];
+                return <span className={tone(item, value)}>{formatMetric(item.kind, value)}</span>;
+              },
+            })),
+            {
+              header: "Promedio",
+              cell: (item: Metric) => formatMetric(item.kind, mean(item.values)),
+            },
+          ]}
         />
-        <StatCard
-          label="Alumnos activos"
-          value={now.flow.active}
-          note={
-            now.flow.joined || now.flow.left
-              ? `${net >= 0 ? "+" : "−"}${Math.abs(net)} este mes · ${now.flow.joined} altas, ${now.flow.left} bajas`
-              : peopleChange.text
-          }
-          trend={
-            now.flow.joined || now.flow.left
-              ? net > 0
-                ? "up"
-                : net < 0
-                  ? "down"
-                  : undefined
-              : peopleChange.trend
-          }
-        />
-        <StatCard
-          label="Asistencia"
-          value={now.attendance.percent === null ? "—" : `${now.attendance.percent}%`}
-          note={
-            attendanceChange.text ??
-            (now.attendance.recorded
-              ? `${now.attendance.present} de ${now.attendance.recorded} asistencias`
-              : undefined)
-          }
-          trend={attendanceChange.trend}
-        />
-        <StatCard
-          label="Aprobaron examen"
-          value={exams.presented ? `${exams.passed} de ${exams.presented}` : "—"}
-          note="Cada aprobado sube una cinta"
-        />
-      </div>
-
-      <Tabs label="Gráfica" items={views} value={view} onChange={setView} />
-      <div className="spacer-top">
-        {view === "ingresos" && (
-          <BarChart
-            wide
-            title="Ingreso por mensualidades · últimos 6 meses"
-            current={month}
-            items={income.map((row) => ({ month: row.month, value: row.total }))}
-          />
-        )}
-        {view === "alumnos" && (
-          <LineChart
-            wide
-            title="Alumnos activos · últimos 6 meses"
-            current={month}
-            items={flow.map((row) => ({ month: row.month, value: row.active }))}
-          />
-        )}
-        {view === "asistencia" && (
-          <LineChart
-            wide
-            title="Asistencia · últimos 6 meses"
-            suffix="%"
-            current={month}
-            items={attendance.map((row) => ({ month: row.month, value: row.percent }))}
-          />
-        )}
-      </div>
+      </section>
     </>
   );
 }

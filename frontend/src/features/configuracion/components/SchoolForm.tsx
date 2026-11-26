@@ -31,6 +31,7 @@ export function SchoolForm({
         name: String(values.name),
         owner: String(values.owner),
         fee: String(values.fee),
+        examFee: String(values.examFee),
       });
       await onDone();
     } catch (caught) {
@@ -81,12 +82,19 @@ export function SchoolForm({
             required
             placeholder="Ej. 850.00"
           />
-          {!readOnly && (
-            <span className="field-hint">
-              El nuevo monto aplica a las mensualidades que se generen desde ahora; las que ya
-              existen no cambian.
-            </span>
-          )}
+        </div>
+        <div className="field">
+          <label htmlFor="school-exam-fee">Costo de examen</label>
+          <input
+            id="school-exam-fee"
+            name="examFee"
+            type="number"
+            min="0"
+            step="0.01"
+            defaultValue={school.examFee.toFixed(2)}
+            required
+            placeholder="Ej. 1150.00"
+          />
         </div>
         <div className="field">
           <label htmlFor="school-today">Fecha operativa</label>

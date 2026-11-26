@@ -51,6 +51,7 @@ components:
       required: [kind,date,fee]
       properties:
         kind: { type: string, enum: [partial, black] }
+        name: { type: string, maxLength: 80, description: Nombre opcional del examen; vacío muestra el tipo }
         date: { type: string, format: date }
         fee: { type: string, description: Costo por alumno, por ejemplo 350.00 }
         paymentDeadline: { type: string, format: date, description: Fecha límite de pago; por omisión una semana antes del examen }
@@ -62,12 +63,14 @@ components:
         name: { type: string, maxLength: 80 }
         owner: { type: string, maxLength: 80, description: Nombre de la propietaria que inició sesión }
         fee: { type: string, description: Mensualidad general, por ejemplo 450.00; aplica a los cobros que se generen desde ahora }
+        examFee: { type: string, description: Costo habitual de un examen, por ejemplo 1150.00; se propone al programar uno nuevo }
     CatalogWrite:
       type: object
       additionalProperties: false
       required: [name,price]
       properties:
         name: { type: string, maxLength: 60 }
+        category: { type: string, enum: [Uniformes, Equipo de protección], description: Grupo del artículo; por omisión Equipo de protección }
         sizes: { type: array, items: { type: string, maxLength: 20 }, description: Tallas entre las que se elige al registrar un pedido }
         price: { type: string, description: Precio por artículo, por ejemplo 650.00; en cada pedido se puede cambiar }
     GradeCreate:
@@ -100,6 +103,8 @@ components:
       additionalProperties: false
       required: [date,fee,paymentDeadline]
       properties:
+        kind: { type: string, enum: [partial, black], description: Si se omite, el tipo no cambia }
+        name: { type: string, maxLength: 80 }
         date: { type: string, format: date }
         fee: { type: string, description: Costo por alumno, por ejemplo 350.00 }
         paymentDeadline: { type: string, format: date }

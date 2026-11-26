@@ -72,6 +72,7 @@ WHERE s.school_id=$1 AND ($2='' OR s.id::text=$2)`, school, studentID, today)
 func (s *Server) createExam(c *gin.Context) {
 	var in struct {
 		Kind     string `json:"kind"`
+		Name     string `json:"name"`
 		Date     string `json:"date"`
 		Fee      string `json:"fee"`
 		Deadline string `json:"paymentDeadline"`
@@ -109,7 +110,7 @@ func (s *Server) createExam(c *gin.Context) {
 		return
 	}
 	var id string
-	e = tx.QueryRow(c, `INSERT INTO exams(school_id,kind,exam_date,fee_cents,payment_deadline) VALUES($1,$2,$3,$4,$5) RETURNING id::text`, c.GetString("school"), in.Kind, date, fee, deadline).Scan(&id)
+	e = tx.QueryRow(c, `INSERT INTO exams(school_id,kind,exam_date,fee_cents,payment_deadline,name) VALUES($1,$2,$3,$4,$5,$6) RETURNING id::text`, c.GetString("school"), in.Kind, date, fee, deadline, strings.TrimSpace(in.Name)).Scan(&id)
 	if e == nil {
 		e = completeIdempotency(c, tx, c.GetString("school"), key, "createExam", id)
 	}
@@ -128,11 +129,13 @@ func (s *Server) createExam(c *gin.Context) {
 // tenga resultado; los cobros de los inscritos se ajustan a los nuevos datos.
 func (s *Server) updateExam(c *gin.Context) {
 	var in struct {
+		Kind     string `json:"kind"`
+		Name     string `json:"name"`
 		Date     string `json:"date"`
 		Fee      string `json:"fee"`
 		Deadline string `json:"paymentDeadline"`
 	}
-	if c.ShouldBindJSON(&in) != nil {
+	if c.ShouldBindJSON(&in) != nil || (in.Kind != "" && in.Kind != "partial" && in.Kind != "black") {
 		fail(c, 400, "Indica la fecha, el costo y la fecha límite de pago")
 		return
 	}
@@ -171,7 +174,10 @@ func (s *Server) updateExam(c *gin.Context) {
 		fail(c, 409, "Ya hay pagos de este examen; el costo no se puede cambiar. Anula los pagos primero en Pagos")
 		return
 	}
-	if _, e = tx.Exec(c, `UPDATE exams SET exam_date=$1,fee_cents=$2,payment_deadline=$3 WHERE id=$4`, date, fee, deadline, c.Param("id")); e == nil {
+	if in.Kind != "" {
+		kind = in.Kind
+	}
+	if _, e = tx.Exec(c, `UPDATE exams SET exam_date=$1,fee_cents=$2,payment_deadline=$3,name=$5,kind=$6 WHERE id=$4`, date, fee, deadline, c.Param("id"), strings.TrimSpace(in.Name), kind); e == nil {
 		label := "Examen parcial"
 		if kind == "black" {
 			label = "Examen de cinta negra"

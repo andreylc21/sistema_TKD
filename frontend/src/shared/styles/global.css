@@ -874,8 +874,9 @@ table {
   font-size: 0.9rem;
 }
 th {
-  color: var(--ink-soft);
-  background: #eef2f7;
+  color: #fff;
+  font-weight: 800;
+  background: var(--primary);
   text-align: left;
   white-space: nowrap;
   font-size: 0.9rem;
@@ -2779,6 +2780,8 @@ tr.row-inactive td strong {
   display: inline-flex;
   width: fit-content;
   margin-top: 4px;
+  color: var(--status-ink);
+  font-size: 0.74rem;
 }
 
 /* ===== Solo el azul principal va sólido; el rojo y el verde fuertes quedan para los estados ===== */
@@ -2867,7 +2870,13 @@ td .edit-button {
   --status-ink: #5b6472;
 }
 .status-warning {
-  --status-ink: #8a5a00;
+  --status-ink: #c27a00;
+}
+.status-danger {
+  --status-ink: #d4202f;
+}
+.status-success {
+  --status-ink: #1a8a47;
 }
 .list-row-value > .status {
   font-size: 0.74rem;
@@ -2913,4 +2922,185 @@ td .edit-button {
   background: #e6e9ee;
   font-size: 0.86rem;
   font-weight: 600;
+}
+
+/* Sombra suave solo en botones sólidos; los de contorno (acciones de fila) quedan planos. */
+.button:not(.secondary):not(.ghost) {
+  box-shadow: 0 1px 2px rgba(20, 30, 60, 0.22);
+  transition:
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+.button:not(.secondary):not(.ghost):hover:not(:disabled) {
+  box-shadow: 0 3px 8px rgba(20, 30, 60, 0.28);
+}
+.button:not(.secondary):not(.ghost):active:not(:disabled) {
+  box-shadow: 0 0 1px rgba(20, 30, 60, 0.2);
+  transform: translateY(1px);
+}
+.button:disabled {
+  box-shadow: none;
+}
+
+/* Cambio del resumen mensual: verde si es favorable, rojo si no. */
+.trend-up {
+  color: var(--success);
+  font-weight: 700;
+}
+.trend-down {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* Gráficas del reporte: las tres juntas, sin pestañas. */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+@media (max-width: 1100px) {
+  .charts-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Con 12 barras las cifras deben encogerse en vez de ensanchar la tarjeta. */
+.charts-grid .chart .chart-bars {
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+.charts-grid .chart .chart-bar {
+  min-width: 0;
+}
+.charts-grid .chart .chart-bar-value {
+  font-size: 0.6rem;
+}
+.charts-grid .chart .chart-bar-label {
+  font-size: 0.64rem;
+}
+
+/* Acciones del reporte en una sola fila, alineadas por abajo. */
+.toolbar-action {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+/* Reporte impreso: la tabla tal cual, en hoja horizontal y con sus colores. */
+/* Margen 0 en la hoja: así el navegador no imprime su encabezado (título, fecha y dirección). */
+@page {
+  size: landscape;
+  margin: 0;
+}
+@media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page-help,
+  .help-button,
+  .help-popover {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  #root {
+    padding: 14mm;
+  }
+  .skip-link {
+    display: none !important;
+  }
+  /* Aspecto de hoja de cálculo: cuadrícula completa, encabezado gris y letra de hoja. */
+  .table-surface,
+  .table-wrap {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+  .table-surface table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .table-surface th:first-child {
+    width: 20%;
+  }
+  .table-surface th:last-child {
+    width: 9%;
+  }
+  .table-surface th,
+  .table-surface td {
+    padding: 6px 4px;
+    font-size: 0.74rem;
+    color: #000;
+    border: 1px solid #595959 !important;
+  }
+  .table-surface th:first-child,
+  .table-surface td:first-child {
+    padding-left: 8px;
+  }
+  .table-surface thead th {
+    color: #000;
+    background: #d9d9d9;
+    font-weight: 700;
+  }
+  .table-surface tbody tr:nth-child(even) td {
+    background: #fff;
+  }
+  .table-surface td.primary-cell strong {
+    font-weight: 700;
+  }
+  .table-surface .trend-up {
+    color: #1a7a3c;
+  }
+  .table-surface .trend-down {
+    color: #c00000;
+  }
+  .table-surface tr {
+    break-inside: avoid;
+  }
+  .section-gap > h2 {
+    margin: 0 0 10px;
+    font-size: 1.1rem;
+  }
+}
+
+/* Datos del examen: etiqueta pequeña y valor debajo, sin cajitas. */
+.exam-facts {
+  display: flex;
+  gap: 36px;
+  margin: 0 auto 0 36px;
+}
+.card-title-row {
+  align-items: center;
+}
+.exam-facts > div {
+  display: grid;
+  gap: 2px;
+}
+.exam-facts dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.exam-facts dd {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.card-title-row:has(.exam-facts) {
+  margin-bottom: 20px;
+}
+
+/* El nombre en una lista abre el detalle sin parecer un enlace azul subrayado. */
+.row-link {
+  color: inherit;
+  text-decoration: none;
+}
+.row-link:hover strong {
+  text-decoration: underline;
 }

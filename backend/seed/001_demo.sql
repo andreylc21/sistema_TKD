@@ -1,7 +1,27 @@
 INSERT INTO schools (id, name, timezone, monthly_fee_cents) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'Academia Ji Do Kwan', 'America/Tijuana', 85000),
+  ('00000000-0000-0000-0000-000000000001', 'Academia Ji Do Kwan', 'America/Tijuana', 75000),
   ('00000000-0000-0000-0000-000000000002', 'Academia Norte', 'America/Tijuana', 70000)
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO catalog_items (school_id, name, sizes, price_cents, category) VALUES
+  ('00000000-0000-0000-0000-000000000001','Uniforme 000, 00, 0','{}',92000,'Uniformes'),
+  ('00000000-0000-0000-0000-000000000001','Uniforme 1 al 4','{}',94000,'Uniformes'),
+  ('00000000-0000-0000-0000-000000000001','Uniforme 5 al 8','{}',97000,'Uniformes'),
+  ('00000000-0000-0000-0000-000000000001','Cinta','{}',16000,'Uniformes'),
+  ('00000000-0000-0000-0000-000000000001','Karategui 3-8','{}',125000,'Uniformes'),
+  ('00000000-0000-0000-0000-000000000001','Pants','{}',120000,'Uniformes'),
+  ('00000000-0000-0000-0000-000000000001','Tenis','{}',76000,'Uniformes'),
+  ('00000000-0000-0000-0000-000000000001','Peto 00-0-1','{}',85000,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Peto 2-3','{}',86000,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Peto 4-5','{}',87000,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Casco','{}',78000,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Espinilleras','{}',61000,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Antebraceras','{}',55000,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Conchas','{}',35500,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Guantes','{}',76000,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Empeineras','{}',76000,'Equipo de protección'),
+  ('00000000-0000-0000-0000-000000000001','Mochila / Back pack','{}',76000,'Equipo de protección')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO grades (id, school_id, name, sort_order) VALUES
   ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Cinta blanca',1),

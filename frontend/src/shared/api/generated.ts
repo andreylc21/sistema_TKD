@@ -700,6 +700,8 @@ export interface components {
         ExamWrite: {
             /** @enum {string} */
             kind: "partial" | "black";
+            /** @description Nombre opcional del examen; vacío muestra el tipo */
+            name?: string;
             /** Format: date */
             date: string;
             /** @description Costo por alumno */
@@ -716,9 +718,16 @@ export interface components {
             owner: string;
             /** @description Mensualidad general */
             fee: string;
+            /** @description Costo habitual de un examen */
+            examFee?: string;
         };
         CatalogWrite: {
             name: string;
+            /**
+             * @description Grupo del artículo; por omisión Equipo de protección
+             * @enum {string}
+             */
+            category?: "Uniformes" | "Equipo de protección";
             /** @description Tallas entre las que se elige al registrar un pedido */
             sizes?: string[];
             /** @description Precio por artículo */
@@ -752,6 +761,12 @@ export interface components {
             replacementId?: string;
         };
         ExamUpdate: {
+            /**
+             * @description Si se omite
+             * @enum {string}
+             */
+            kind?: "partial" | "black";
+            name?: string;
             /** Format: date */
             date: string;
             /** @description Costo por alumno */

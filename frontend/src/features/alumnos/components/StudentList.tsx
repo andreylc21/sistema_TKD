@@ -100,7 +100,7 @@ export function StudentList({
             cell: (student) => (
               <>
                 <strong>{student.name}</strong>
-                {student.status !== "Activo" && <Status tone="neutral">{student.status}</Status>}
+                {student.status !== "Activo" && <Status tone="danger">{student.status}</Status>}
                 {outOfRange.has(student.id) && (
                   <span className="badge warning">Ya no entra en {outOfRange.get(student.id)}</span>
                 )}

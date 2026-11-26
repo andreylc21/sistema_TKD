@@ -5,6 +5,10 @@ const shortMonth = (month: string) =>
     .format(new Date(`${month}-01T12:00:00`))
     .replace(".", "");
 
+/** "$6.8k": cifras cortas cuando hay muchas barras. */
+const compact = (value: number) =>
+  value >= 1000 ? `$${(value / 1000).toFixed(1).replace(/\.0$/, "")}k` : `$${Math.round(value)}`;
+
 /** Barras verticales, una por mes; la del mes elegido va resaltada. */
 export function BarChart({
   title,
@@ -29,7 +33,9 @@ export function BarChart({
       <div className="chart-bars" aria-hidden="true">
         {items.map((item) => (
           <div className={`chart-bar${item.month === current ? " current" : ""}`} key={item.month}>
-            <span className="chart-bar-value">{money(item.value).replace(/\.00$/, "")}</span>
+            <span className="chart-bar-value">
+              {items.length > 8 ? compact(item.value) : money(item.value).replace(/\.00$/, "")}
+            </span>
             <span className="chart-bar-fill" style={{ height: `${(item.value / peak) * 100}%` }} />
             <span className="chart-bar-label">{shortMonth(item.month)}</span>
           </div>

@@ -1,6 +1,13 @@
 import type { components } from "./generated";
 
-export type CatalogItem = { id: string; name: string; sizes: string[]; price: number };
+export type CatalogCategory = "Uniformes" | "Equipo de protección";
+export type CatalogItem = {
+  id: string;
+  name: string;
+  category: CatalogCategory;
+  sizes: string[];
+  price: number;
+};
 export type Grade = { id: string; name: string; track: "color" | "poom" | "dan"; level: number };
 export type Student = {
   id: string;
@@ -136,6 +143,8 @@ export type ExamEntry = {
 export type Exam = {
   id: string;
   kind: "partial" | "black";
+  /** Nombre opcional; vacío muestra el tipo de examen. */
+  name: string;
   date: string;
   fee: number;
   paymentDeadline: string;
@@ -152,7 +161,7 @@ export type ExamProgress = {
   missing: string[];
 };
 export type Bootstrap = {
-  school: { name: string; owner: string; fee: number };
+  school: { name: string; owner: string; fee: number; examFee: number };
   demoDate: string;
   demoMode?: boolean;
   csrfToken: string;

@@ -32,7 +32,7 @@ export function DataTable<T>({
           <thead>
             <tr>
               {columns.map((column, index) => (
-                <th key={index}>
+                <th key={index} className={column.actions ? "actions-cell" : undefined}>
                   {column.actions ? (
                     <span className="sr-only">{column.header}</span>
                   ) : (
@@ -46,7 +46,12 @@ export function DataTable<T>({
             {rows.map((row) => (
               <tr key={rowKey(row)} className={rowClassName?.(row)}>
                 {columns.map((column, index) => (
-                  <td key={index} className={column.primary ? "primary-cell" : undefined}>
+                  <td
+                    key={index}
+                    className={
+                      column.primary ? "primary-cell" : column.actions ? "actions-cell" : undefined
+                    }
+                  >
                     {column.actions ? (
                       <div className="inline-actions">{column.cell(row)}</div>
                     ) : (

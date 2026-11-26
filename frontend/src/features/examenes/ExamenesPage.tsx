@@ -6,6 +6,7 @@ import { paths } from "../../shared/lib/paths";
 import { DataTable } from "../../shared/ui/DataTable";
 import { Dialog } from "../../shared/ui/Dialog";
 import { FormScreen } from "../../shared/ui/FormScreen";
+import { editButtonClass, EditLabel } from "../../shared/ui/EditButton";
 import { Link } from "../../shared/ui/Link";
 import { SearchInput } from "../../shared/ui/SearchInput";
 import { Status } from "../../shared/ui/Status";
@@ -182,8 +183,8 @@ export function ExamenesPage({ data }: Props) {
                   </Link>
                 )}
                 {canEditExam(exam) && (
-                  <Link className="button secondary small" to={paths.examenEditar(exam.id)}>
-                    Editar
+                  <Link className={editButtonClass} to={paths.examenEditar(exam.id)}>
+                    <EditLabel />
                   </Link>
                 )}
               </>
@@ -312,8 +313,8 @@ function ExamCard({
               </button>
             )}
             {canEditExam(exam) && (
-              <Link className="button secondary small" to={paths.examenEditar(exam.id)}>
-                Editar examen
+              <Link className={editButtonClass} to={paths.examenEditar(exam.id)}>
+                <EditLabel />
               </Link>
             )}
           </div>

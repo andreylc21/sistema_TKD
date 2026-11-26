@@ -2387,11 +2387,14 @@ td .inline-actions {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #fff;
+  color: var(--primary);
   border-color: var(--primary);
-  background: var(--primary);
+  background: #fff;
   transform: none;
   transition: none;
+}
+.button.secondary.edit-button:hover:not(:disabled) {
+  background: var(--primary-soft);
 }
 .edit-button svg {
   width: 16px;
@@ -3103,4 +3106,19 @@ td .edit-button {
 }
 .row-link:hover strong {
   text-decoration: underline;
+}
+
+/* Estándar de acciones en tablas: columna pegada al borde derecho, botones alineados a la derecha
+   con la misma separación del borde y entre sí en todas las pantallas. */
+th.actions-cell,
+td.actions-cell {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  padding-right: 16px;
+}
+td.actions-cell .inline-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 8px;
 }

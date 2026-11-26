@@ -16,16 +16,12 @@ export type ConfirmField = {
 export function ConfirmDialog({
   title,
   children,
-  confirmLabel = "Confirmar",
-  danger = false,
   field,
   onConfirm,
   onCancel,
 }: {
   title: string;
   children?: ReactNode;
-  confirmLabel?: string;
-  danger?: boolean;
   field?: ConfirmField;
   onConfirm: (value: string) => Promise<void>;
   onCancel: () => void;
@@ -75,11 +71,11 @@ export function ConfirmDialog({
           </div>
         )}
         <div className="form-actions full-span">
-          <button type="button" className="button secondary" disabled={busy} onClick={onCancel}>
+          <button type="button" className="button danger" disabled={busy} onClick={onCancel}>
             Cancelar
           </button>
-          <button className={`button${danger ? " danger" : ""}`} disabled={busy}>
-            {busy ? "Procesando…" : confirmLabel}
+          <button className="button confirm" disabled={busy}>
+            {busy ? "Procesando…" : "Aceptar"}
           </button>
         </div>
       </form>

@@ -1,73 +1,70 @@
-import { useState } from "react";
 import type { Bootstrap, Note, Student } from "../../../shared/api/contracts";
 import { date } from "../../../shared/lib/format";
-import { paths } from "../../../shared/lib/paths";
-import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
-import { Link } from "../../../shared/ui/Link";
+import { ConfirmAction } from "../../../shared/ui/ConfirmAction";
+import { DialogButton } from "../../../shared/ui/DialogButton";
+import { editButtonClass, EditLabel } from "../../../shared/ui/EditButton";
 import { deleteNote } from "../api/alumnos.api";
+import { NoteForm } from "./NoteForm";
 
-/** Notas de seguimiento con sus acciones. `preview` recorta cada texto a tres líneas. */
+/** Notas de seguimiento con sus acciones. */
 export function NoteList({
   data,
   student,
   notes,
   reload,
-  preview = false,
 }: {
   data: Bootstrap;
   student: Student;
   notes: Note[];
   reload: () => Promise<void>;
-  preview?: boolean;
 }) {
-  const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
-
-  async function removeNote(note: Note) {
-    await deleteNote(note.id, note.version);
-    setNoteToDelete(null);
-    await reload();
-  }
-
   return (
-    <>
-      <ul className="list">
-        {notes.map((note) => (
-          <li className="list-row" key={note.id}>
-            <div className="list-row-main">
-              <strong>{note.topic}</strong>
-              <span className={preview ? "note-text clamp" : "note-text long-text"}>
-                {note.text}
-              </span>
-              {note.sessionId && (
-                <span className="note-origin">{noteOrigin(data, note.sessionId)}</span>
-              )}
+    <ul className="list">
+      {notes.map((note) => (
+        <li className="list-row" key={note.id}>
+          <div className="list-row-main">
+            <strong>{note.topic}</strong>
+            <span className="note-text long-text">{note.text}</span>
+            {note.sessionId && (
+              <span className="note-origin">{noteOrigin(data, note.sessionId)}</span>
+            )}
+          </div>
+          <div className="list-row-value">
+            <span className="nowrap">{date(note.date)}</span>
+            <div className="inline-actions">
+              <ConfirmAction
+                label="Eliminar"
+                title="Eliminar nota"
+                onConfirm={async () => {
+                  await deleteNote(note.id, note.version);
+                  await reload();
+                }}
+              >
+                Se eliminará la nota “{note.topic}” del expediente de {student.name}.
+              </ConfirmAction>
+              <DialogButton
+                label={<EditLabel />}
+                className={editButtonClass}
+                title={`Editar nota · ${student.name}`}
+              >
+                {(close) => (
+                  <NoteForm
+                    studentId={student.id}
+                    today={data.demoDate}
+                    initial={note}
+                    onCancel={close}
+                    onSaved={async () => {
+                      close();
+                      await reload();
+                    }}
+                  />
+                )}
+              </DialogButton>
             </div>
-            <div className="list-row-value">
-              <span className="nowrap">{date(note.date)}</span>
-              <div className="inline-actions">
-                <Link className="text-button" to={paths.notaEditar(student.id, note.id)}>
-                  Editar
-                </Link>
-                <button className="text-button danger" onClick={() => setNoteToDelete(note)}>
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
-      {noteToDelete && (
-        <ConfirmDialog
-          title="Eliminar nota"
-          confirmLabel="Eliminar nota"
-          danger
-          onConfirm={() => removeNote(noteToDelete)}
-          onCancel={() => setNoteToDelete(null)}
-        >
-          Se eliminará la nota “{noteToDelete.topic}” del expediente de {student.name}.
-        </ConfirmDialog>
-      )}
-    </>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

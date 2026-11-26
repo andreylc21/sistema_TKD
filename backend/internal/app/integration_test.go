@@ -178,3 +178,106 @@ func TestResetDemoSucceeds(t *testing.T) {
 }
 
 func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
+
+func gradesOf(t *testing.T, c *apiClient) []struct {
+	ID, Name, Track string
+	Level           int
+} {
+	t.Helper()
+	var body struct {
+		Grades []struct {
+			ID, Name, Track string
+			Level           int
+		} `json:"grades"`
+		Students []struct {
+			GradeID string `json:"gradeId"`
+		} `json:"students"`
+	}
+	_ = json.Unmarshal(c.expect(200, "GET", "/api/bootstrap", "").Body.Bytes(), &body)
+	return body.Grades
+}
+
+func TestGradeEditingKeepsStudentsAndHistory(t *testing.T) {
+	c, _ := newIntegrationClient(t)
+	c.expect(204, "PUT", "/api/school", `{"name":"Academia Dragón","owner":"Mtra. Ana","fee":"450"}`)
+	c.expect(400, "PUT", "/api/school", `{"name":"  ","owner":"Ana","fee":"450"}`)
+	c.expect(400, "PUT", "/api/school", `{"name":"Academia","owner":"Ana","fee":"mucho"}`)
+	if body := c.expect(200, "GET", "/api/bootstrap", "").Body.String(); !strings.Contains(body, `"owner":"Mtra. Ana"`) || !strings.Contains(body, `"fee":450`) {
+		t.Fatalf("los datos de la escuela no se guardaron: %.200s", body)
+	}
+
+	grades := gradesOf(t, c)
+	first := grades[0]
+	c.expect(204, "PUT", "/api/grades/"+first.ID, `{"name":"Blanca inicial"}`)
+	c.expect(409, "PUT", "/api/grades/"+first.ID, `{"name":"`+grades[1].Name+`"}`)
+
+	created := c.expect(201, "POST", "/api/grades", `{"name":"Azul claro","track":"color","afterId":"`+first.ID+`"}`)
+	if !strings.Contains(created.Body.String(), "id") || gradesOf(t, c)[1].Name != "Azul claro" {
+		t.Fatalf("el grado nuevo debía quedar después del primero: %s", created.Body)
+	}
+	c.expect(204, "POST", "/api/grades/"+first.ID+"/move", `{"direction":"down"}`)
+	if gradesOf(t, c)[0].Name != "Azul claro" {
+		t.Fatal("mover hacia abajo debía intercambiar los dos primeros grados")
+	}
+	c.expect(400, "POST", "/api/grades/"+first.ID+"/move", `{"direction":"sideways"}`)
+
+	// Borrar un grado con alumnos exige reemplazo y los mueve junto con su historial.
+	var withStudents string
+	for _, g := range gradesOf(t, c) {
+		if g.Track == "color" && g.ID != first.ID {
+			rec := c.do("POST", "/api/grades/"+g.ID+"/remove", `{}`)
+			if rec.Code == 409 {
+				withStudents = g.ID
+				break
+			}
+		}
+	}
+	if withStudents == "" {
+		t.Skip("la semilla no tiene un grado de color con alumnos")
+	}
+	c.expect(409, "POST", "/api/grades/"+withStudents+"/remove", `{"replacementId":"`+withStudents+`"}`)
+	c.expect(204, "POST", "/api/grades/"+withStudents+"/remove", `{"replacementId":"`+first.ID+`"}`)
+	for _, g := range gradesOf(t, c) {
+		if g.ID == withStudents {
+			t.Fatal("el grado borrado sigue en la lista")
+		}
+	}
+}
+
+func TestExamEnrollmentPaysAndClosesOnExamDay(t *testing.T) {
+	c, _ := newIntegrationClient(t)
+	const student = "20000000-0000-0000-0000-000000000001"
+	same := c.expect(201, "POST", "/api/exams", `{"kind":"partial","date":"2026-10-03","fee":"350"}`)
+	var created struct{ ID string }
+	_ = json.Unmarshal(same.Body.Bytes(), &created)
+	c.expect(409, "POST", "/api/exams/"+created.ID+"/entries", `{"studentId":"`+student+`"}`)
+
+	future := c.expect(201, "POST", "/api/exams", `{"kind":"partial","date":"2026-10-20","fee":"350"}`)
+	_ = json.Unmarshal(future.Body.Bytes(), &created)
+	entry := c.expect(201, "POST", "/api/exams/"+created.ID+"/entries", `{"studentId":"`+student+`","method":"Transferencia"}`)
+	var enrolled struct{ ID string }
+	_ = json.Unmarshal(entry.Body.Bytes(), &enrolled)
+	c.expect(400, "POST", "/api/exams/"+created.ID+"/entries", `{"studentId":"`+student+`","method":"Cripto"}`)
+	body := c.expect(200, "GET", "/api/bootstrap", "").Body.String()
+	if !strings.Contains(body, "Inscripción a examen") || !strings.Contains(body, `"owed":0`) {
+		t.Fatalf("inscribirse debía registrar el pago completo: %.300s", body)
+	}
+	c.expect(409, "PUT", "/api/exams/"+created.ID+"/entries/"+enrolled.ID+"/result", `{"result":"passed"}`)
+	c.expect(409, "DELETE", "/api/exams/"+created.ID+"/entries/"+enrolled.ID, "")
+}
+
+func TestCatalogCrud(t *testing.T) {
+	c, _ := newIntegrationClient(t)
+	created := c.expect(201, "POST", "/api/catalog", `{"name":"Dobok","sizes":["130"," 140 ","130",""],"price":"650"}`)
+	var item struct{ ID string }
+	_ = json.Unmarshal(created.Body.Bytes(), &item)
+	c.expect(409, "POST", "/api/catalog", `{"name":"dobok","sizes":[],"price":"1"}`)
+	c.expect(400, "POST", "/api/catalog", `{"name":"Guantes","price":"mucho"}`)
+	body := c.expect(200, "GET", "/api/bootstrap", "").Body.String()
+	if !strings.Contains(body, `"sizes":["130","140"]`) || !strings.Contains(body, `"price":650`) {
+		t.Fatalf("el catálogo debía quedar normalizado: %.300s", body)
+	}
+	c.expect(204, "PUT", "/api/catalog/"+item.ID, `{"name":"Dobok blanco","sizes":["150"],"price":"700.50"}`)
+	c.expect(204, "DELETE", "/api/catalog/"+item.ID, "")
+	c.expect(404, "DELETE", "/api/catalog/"+item.ID, "")
+}

@@ -2,6 +2,7 @@ import { request } from "../../../shared/api/client";
 import type {
   AssignmentWrite,
   AttendanceWrite,
+  GroupVersion,
   GroupWrite,
   KeepStudentWrite,
   MoveStudentWrite,
@@ -65,4 +66,20 @@ export function moveStudent(groupId: string, body: MoveStudentWrite) {
 
 export function keepStudent(groupId: string, body: KeepStudentWrite) {
   return request<void, KeepStudentWrite>(`/api/groups/${groupId}/keep`, { method: "POST", body });
+}
+
+export function archiveGroup(id: string, body: GroupVersion) {
+  return request<void, GroupVersion>(`/api/groups/${id}/archive`, { method: "POST", body });
+}
+
+export function restoreGroup(id: string, body: GroupVersion) {
+  return request<void, GroupVersion>(`/api/groups/${id}/restore`, { method: "POST", body });
+}
+
+export function deleteGroup(id: string) {
+  return request<void>(`/api/groups/${id}`, { method: "DELETE" });
+}
+
+export function finishSession(sessionId: string) {
+  return request<void>(`/api/sessions/${sessionId}/finish`, { method: "POST" });
 }

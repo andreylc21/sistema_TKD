@@ -64,20 +64,32 @@ export function NoteForm({
       </div>
       <div className="field">
         <label htmlFor="note-topic">Aspecto trabajado</label>
-        <input id="note-topic" name="topic" defaultValue={initial?.topic} required />
+        <input
+          id="note-topic"
+          name="topic"
+          defaultValue={initial?.topic}
+          required
+          placeholder="Ej. Patadas y equilibrio"
+        />
       </div>
       <div className="field full-span">
         <label htmlFor="note-text">Contenido de la nota</label>
-        <textarea id="note-text" name="text" defaultValue={initial?.text} required />
+        <textarea
+          id="note-text"
+          name="text"
+          defaultValue={initial?.text}
+          required
+          placeholder="Ej. Mejoró la técnica de patada; falta trabajar la guardia."
+        />
       </div>
       <div className="form-actions full-span">
         {onCancel && (
-          <button type="button" className="button secondary" onClick={onCancel}>
+          <button type="button" className="button danger" onClick={onCancel}>
             Cancelar
           </button>
         )}
-        <button className="button" disabled={busy}>
-          {busy ? "Guardando…" : "Guardar nota"}
+        <button className="button confirm" disabled={busy}>
+          {busy ? "Guardando…" : "Aceptar"}
         </button>
       </div>
     </form>

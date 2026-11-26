@@ -5,21 +5,17 @@ export type Route =
   | { name: "alumno-nuevo" }
   | { name: "alumno"; studentId: string }
   | { name: "alumno-editar"; studentId: string }
-  | { name: "notas"; studentId: string }
-  | { name: "nota-nueva"; studentId: string }
-  | { name: "nota-editar"; studentId: string; noteId: string }
-  | { name: "clases"; view: "day" | "groups"; date?: string }
+  | { name: "grupos" }
   | { name: "grupo-nuevo" }
-  | { name: "grupo-editar"; groupId: string }
+  | { name: "grupo"; groupId: string }
   | { name: "sesion"; sessionId: string }
-  | { name: "sesion-nota"; sessionId: string; studentId: string }
   | { name: "pagos"; due?: string; q?: string; progress?: string; all?: boolean }
   | { name: "pago-nuevo"; chargeId?: string; studentId?: string }
   | { name: "pedidos" }
   | { name: "pedido-nuevo" }
-  | { name: "pedido"; orderId: string }
   | { name: "examenes" }
   | { name: "examen-nuevo" }
+  | { name: "examen-editar"; examId: string }
   | { name: "reportes" }
   | { name: "configuracion" }
   | { name: "no-encontrada" };
@@ -28,7 +24,7 @@ export function matchRoute(url: string): Route {
   const { pathname, searchParams } = new URL(url, "http://local");
   const parts = pathname.split("/").filter(Boolean).map(decodeURIComponent);
   const param = (name: string) => searchParams.get(name) || undefined;
-  const [section, a, b, c, d] = parts;
+  const [section, a, b, c] = parts;
   const size = parts.length;
   if (!size) return { name: "inicio" };
 
@@ -38,22 +34,25 @@ export function matchRoute(url: string): Route {
       if (size === 2)
         return a === "nuevo" ? { name: "alumno-nuevo" } : { name: "alumno", studentId: a };
       if (size === 3 && b === "editar") return { name: "alumno-editar", studentId: a };
-      if (size === 3 && b === "notas") return { name: "notas", studentId: a };
-      if (size === 4 && b === "notas" && c === "nueva") return { name: "nota-nueva", studentId: a };
-      if (size === 5 && b === "notas" && d === "editar")
-        return { name: "nota-editar", studentId: a, noteId: c };
       break;
+    case "grupos":
+      if (size === 1) return { name: "grupos" };
+      if (size === 2)
+        return a === "nuevo" ? { name: "grupo-nuevo" } : { name: "grupo", groupId: a };
+      if (b === "clases") {
+        if (size === 4) return { name: "sesion", sessionId: c };
+      }
+      break;
+    // Las URL antiguas de Clases siguen abriendo las pantallas nuevas.
     case "clases":
-      if (size === 1) return { name: "clases", view: "day", date: param("fecha") };
+      if (size === 1) return { name: "grupos" };
       if (a === "grupos") {
-        if (size === 2) return { name: "clases", view: "groups" };
+        if (size === 2) return { name: "grupos" };
         if (size === 3 && b === "nuevo") return { name: "grupo-nuevo" };
-        if (size === 4 && c === "editar") return { name: "grupo-editar", groupId: b };
+        if (size === 4 && c === "editar") return { name: "grupo", groupId: b };
       }
       if (a === "sesiones" && b) {
         if (size === 3) return { name: "sesion", sessionId: b };
-        if (size === 6 && c === "alumnos" && parts[5] === "nota")
-          return { name: "sesion-nota", sessionId: b, studentId: d };
       }
       break;
     case "pagos":
@@ -74,18 +73,17 @@ export function matchRoute(url: string): Route {
       // Los pedidos ya no cuelgan de Pagos; estas rutas antiguas siguen funcionando.
       if (a === "pedidos") {
         if (size === 2) return { name: "pedidos" };
-        if (size === 3)
-          return b === "nuevo" ? { name: "pedido-nuevo" } : { name: "pedido", orderId: b };
+        if (size === 3) return b === "nuevo" ? { name: "pedido-nuevo" } : { name: "pedidos" };
       }
       break;
     case "pedidos":
       if (size === 1) return { name: "pedidos" };
-      if (size === 2)
-        return a === "nuevo" ? { name: "pedido-nuevo" } : { name: "pedido", orderId: a };
+      if (size === 2) return a === "nuevo" ? { name: "pedido-nuevo" } : { name: "pedidos" };
       break;
     case "examenes":
       if (size === 1) return { name: "examenes" };
       if (size === 2 && a === "nuevo") return { name: "examen-nuevo" };
+      if (size === 3 && b === "editar") return { name: "examen-editar", examId: a };
       break;
     case "reportes":
     case "configuracion":

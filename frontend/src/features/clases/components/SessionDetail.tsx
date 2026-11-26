@@ -1,23 +1,26 @@
+import { Status, type StatusTone } from "../../../shared/ui/Status";
+import { ConfirmAction } from "../../../shared/ui/ConfirmAction";
+import { SummaryItem, SummaryStrip } from "../../../shared/ui/SummaryStrip";
+import { AddNoteButton } from "../../alumnos/components/AddNoteButton";
 import { useState, type FormEvent } from "react";
 import type { Attendance, Bootstrap, Session } from "../../../shared/api/contracts";
 import { date } from "../../../shared/lib/format";
 import { paths } from "../../../shared/lib/paths";
-import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
 import { Dialog } from "../../../shared/ui/Dialog";
 import { Link } from "../../../shared/ui/Link";
 import { Empty, Notice, PageHeader } from "../../../shared/ui/PageHeader";
-import { inviteParticipant, updateAttendance, updateSessionStatus } from "../api/clases.api";
+import { finishSession, inviteParticipant, updateAttendance } from "../api/clases.api";
+import { sessionHours, sessionPhase } from "../model/clases.model";
 
-const attendanceStatuses: Attendance["status"][] = [
-  "Sin registrar",
-  "Presente",
-  "Ausente",
-  "Falta justificada",
-];
+// Dos estados: la asistencia es un dato para la escuela, no una calificación. "Sin registrar" es el
+// punto de partida y "Falta justificada" solo aparece si una clase antigua ya la tenía.
+const baseStatuses: Attendance["status"][] = ["Presente", "Ausente"];
+const optionsFor = (current: Attendance["status"]): Attendance["status"][] =>
+  baseStatuses.includes(current) ? baseStatuses : [current, ...baseStatuses];
 
 // Mismo código de color que el resto del sistema (success / danger / warning).
-const attendanceTone: Partial<Record<Attendance["status"], string>> = {
-  "Sin registrar": "light",
+const attendanceTone: Partial<Record<Attendance["status"], StatusTone>> = {
+  "Sin registrar": "neutral",
   Presente: "success",
   Ausente: "danger",
   "Falta justificada": "warning",
@@ -35,13 +38,9 @@ export function SessionDetail({
   reload: () => Promise<void>;
 }) {
   const [showInvite, setShowInvite] = useState(false);
-  const [commentEntry, setCommentEntry] = useState<Attendance>();
   const [restrictionStudentId, setRestrictionStudentId] = useState<string>();
-  const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [statusAction, setStatusAction] = useState<"Cancelada" | "Reprogramada">();
   // Filas que se están guardando: studentId -> estado que se está registrando.
   const [saving, setSaving] = useState<Record<string, Attendance["status"]>>({});
   // Confirmación o error junto a la fila del alumno.
@@ -49,17 +48,16 @@ export function SessionDetail({
   const [bulkBusy, setBulkBusy] = useState(false);
   const current = data.sessions.find((item) => item.id === session.id) ?? session;
   const group = data.groups.find((item) => item.id === current.groupId);
-  const editable = current.status === "Programada";
+  // Una clase que ya pasó no se modifica; solo se le pueden agregar notas.
+  const scheduled = current.status === "Programada";
+  const phase = sessionPhase(current);
+  const editable =
+    scheduled &&
+    (phase === "En curso" || (phase === "Programada" && current.date >= data.demoDate));
 
   if (!group) return <Empty title="Grupo no disponible" text="Recarga para consultar la clase." />;
   const attendance = current.attendance;
   const pendingCount = attendance.filter((entry) => entry.status === "Sin registrar").length;
-  const absences = attendance.filter(
-    (entry) => entry.status === "Ausente" || entry.status === "Falta justificada",
-  ).length;
-  const commentStudent = commentEntry
-    ? data.students.find((item) => item.id === commentEntry.studentId)
-    : undefined;
   const restrictionStudent = data.students.find((item) => item.id === restrictionStudentId);
 
   function markSaving(ids: string[], status?: Attendance["status"]) {
@@ -173,27 +171,6 @@ export function SessionDetail({
     }
   }
 
-  async function saveComment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!commentEntry) return;
-    setBusy(true);
-    setError("");
-    try {
-      await updateAttendance(current.id, commentEntry.studentId, {
-        status: commentEntry.status,
-        observation: comment.trim(),
-        version: commentEntry.version,
-      });
-      await reload();
-      setCommentEntry(undefined);
-      setMessage("Comentario de asistencia guardado.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo guardar el comentario.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(event.currentTarget));
@@ -208,60 +185,17 @@ export function SessionDetail({
     }
   }
 
-  async function changeStatus(status: "Cancelada" | "Reprogramada", newDate = "") {
-    if (status === "Cancelada") {
-      await updateSessionStatus(current.id, { status, version: current.version });
-    } else {
-      const [start, end] = current.time.split("–");
-      await updateSessionStatus(current.id, {
-        status,
-        version: current.version,
-        date: newDate,
-        start,
-        end,
-      });
-    }
-    setStatusAction(undefined);
-    await reload();
-    setMessage(
-      status === "Cancelada"
-        ? absences
-          ? `Clase cancelada. Las ${absences} ${absences === 1 ? "falta ya registrada se conserva" : "faltas ya registradas se conservan"}; la cancelación no agregó faltas nuevas.`
-          : "Clase cancelada; no generó faltas."
-        : `Clase reprogramada para el ${date(newDate)}.`,
-    );
-  }
-
   return (
     <>
-      <PageHeader
-        help="Registra la asistencia y conserva comentarios propios de esta clase. Las notas de seguimiento se guardan aparte en el expediente."
-        context={
-          <span>
-            {date(current.date)} · {current.time} · <strong>{current.status}</strong> ·
-            Participantes: {attendance.length}
-          </span>
-        }
-        actions={
-          editable ? (
-            <>
-              <button className="button secondary" onClick={() => setStatusAction("Reprogramada")}>
-                Reprogramar
-              </button>
-              <button
-                className="button secondary danger"
-                onClick={() => setStatusAction("Cancelada")}
-              >
-                Cancelar clase
-              </button>
-              <button className="button" onClick={() => setShowInvite(true)}>
-                Agregar alumno
-              </button>
-            </>
-          ) : undefined
-        }
-      />
-      {error && !commentEntry && (
+      <PageHeader help="Registra la asistencia de esta clase. Las notas de seguimiento se guardan en el expediente de cada alumno." />
+      <SummaryStrip compact className="spacer-bottom">
+        <SummaryItem label="Grupo">{group.name}</SummaryItem>
+        <SummaryItem label="Fecha">{date(current.date)}</SummaryItem>
+        <SummaryItem label="Hora">{sessionHours(current)}</SummaryItem>
+        <SummaryItem label="Estado">{phase}</SummaryItem>
+        <SummaryItem label="Participantes">{attendance.length}</SummaryItem>
+      </SummaryStrip>
+      {error && (
         <Notice kind="error">
           {error}{" "}
           <button type="button" className="text-button" onClick={() => void reloadSession()}>
@@ -270,36 +204,39 @@ export function SessionDetail({
         </Notice>
       )}
       {message && <Notice>{message}</Notice>}
-      {!editable && (
-        <div className="context-note">
-          <div>
-            <strong>Clase de solo lectura</strong>
-            <span>
-              Las clases canceladas o reemplazadas por reprogramación no admiten nuevos registros.
-            </span>
-          </div>
-        </div>
-      )}
       {editable && (
-        <p className="help save-model-note">
-          La asistencia se guarda sola al elegir un estado. Los comentarios se guardan con el botón
-          «Guardar comentario».
-        </p>
-      )}
-      {editable && pendingCount > 0 && (
         <div className="toolbar">
           <button
             type="button"
-            className="button secondary"
+            className="button success"
             aria-describedby="mark-all-help"
-            disabled={bulkBusy}
+            disabled={bulkBusy || pendingCount === 0}
             onClick={() => void markAllPresent()}
           >
-            {bulkBusy ? "Marcando…" : "Marcar todos como presentes"}
+            {bulkBusy ? "Marcando…" : "Todos presentes"}
           </button>
           <p id="mark-all-help" className="help">
-            Sólo cambia a los {pendingCount} alumnos sin registrar. Después ajusta las excepciones.
+            {pendingCount > 0
+              ? `Sólo cambia a los ${pendingCount} alumnos sin registrar. Después ajusta las excepciones.`
+              : "Todos los alumnos ya tienen asistencia registrada."}
           </p>
+          <div className="toolbar-end inline-actions">
+            <ConfirmAction
+              label="Terminar clase"
+              title="Terminar clase"
+              className="button secondary danger"
+              onConfirm={async () => {
+                await finishSession(current.id);
+                await reload();
+              }}
+            >
+              ¿Terminar la clase de {group.name}? Después ya no se podrá cambiar la asistencia; solo
+              agregar notas.
+            </ConfirmAction>
+            <button className="button" onClick={() => setShowInvite(true)}>
+              Agregar alumno
+            </button>
+          </div>
         </div>
       )}
       <section className="table-surface table-wrap attendance-table">
@@ -308,10 +245,9 @@ export function SessionDetail({
             <thead>
               <tr>
                 <th>Alumno</th>
-                <th>Restricción</th>
+                <th>Edad</th>
                 <th>Asistencia</th>
-                <th>Comentario de asistencia</th>
-                <th>Seguimiento</th>
+                <th>Notas</th>
               </tr>
             </thead>
             <tbody>
@@ -326,20 +262,17 @@ export function SessionDetail({
                       <Link className="text-button" to={paths.alumno(student.id)}>
                         {student.name}
                       </Link>
-                      <span>{entry.temporary ? "Invitado temporal" : "Asignado al grupo"}</span>
-                    </td>
-                    <td>
-                      {student.restrictions ? (
+                      {entry.temporary && <span>Invitado temporal</span>}
+                      {student.restrictions && (
                         <button
                           className="text-button"
                           onClick={() => setRestrictionStudentId(student.id)}
                         >
                           Restricción registrada
                         </button>
-                      ) : (
-                        <span className="muted">Información no registrada</span>
                       )}
                     </td>
+                    <td>{student.age} años</td>
                     <td>
                       {editable ? (
                         <div className="attendance-control">
@@ -356,7 +289,7 @@ export function SessionDetail({
                               )
                             }
                           >
-                            {attendanceStatuses.map((status) => (
+                            {optionsFor(entry.status).map((status) => (
                               <option key={status}>{status}</option>
                             ))}
                           </select>
@@ -385,35 +318,19 @@ export function SessionDetail({
                           )}
                         </div>
                       ) : (
-                        <span className={`badge ${attendanceTone[entry.status] ?? "light"}`}>
+                        <Status tone={attendanceTone[entry.status] ?? "neutral"}>
                           {entry.status}
-                        </span>
-                      )}
-                    </td>
-                    <td className="comment-cell">
-                      <span>{entry.observation || "Sin comentario"}</span>
-                      {editable && (
-                        <button
-                          className="text-button"
-                          onClick={() => {
-                            setError("");
-                            setComment(entry.observation);
-                            setCommentEntry(entry);
-                          }}
-                        >
-                          {entry.observation
-                            ? "Editar comentario"
-                            : entry.status === "Falta justificada"
-                              ? "Agregar justificación"
-                              : "Agregar comentario"}
-                        </button>
+                        </Status>
                       )}
                     </td>
                     <td>
-                      {editable && (
-                        <Link className="text-button" to={paths.sesionNota(current.id, student.id)}>
-                          Agregar nota de seguimiento
-                        </Link>
+                      {scheduled && (
+                        <AddNoteButton
+                          student={student}
+                          today={data.demoDate}
+                          sessionId={current.id}
+                          reload={reload}
+                        />
                       )}
                     </td>
                   </tr>
@@ -429,86 +346,6 @@ export function SessionDetail({
         )}
       </section>
 
-      {commentEntry && commentStudent && (
-        <Dialog
-          title={`Comentario de asistencia · ${commentStudent.name}`}
-          onClose={() => setCommentEntry(undefined)}
-        >
-          <form className="form-grid" onSubmit={saveComment}>
-            {error && (
-              <div className="full-span">
-                <Notice kind="error">{error}</Notice>
-              </div>
-            )}
-            <div className="context-note full-span">
-              <div>
-                <strong>
-                  {group.name} · {date(current.date)} · {current.time}
-                </strong>
-                <span>Estado: {commentEntry.status}</span>
-              </div>
-            </div>
-            <div className="field full-span">
-              <label htmlFor="attendance-comment">Comentario de asistencia</label>
-              <textarea
-                id="attendance-comment"
-                name="comment"
-                value={comment}
-                onChange={(event) => setComment(event.target.value)}
-                aria-describedby="attendance-comment-help"
-                placeholder="Ej. Justificó su ausencia por consulta médica"
-              />
-              <span id="attendance-comment-help" className="help">
-                El comentario no se guarda hasta que pulses «Guardar comentario».
-              </span>
-            </div>
-            <div className="form-actions full-span">
-              <button
-                type="button"
-                className="button secondary"
-                data-dialog-close
-                onClick={() => setCommentEntry(undefined)}
-              >
-                Cancelar
-              </button>
-              <button className="button" disabled={busy}>
-                {busy ? "Guardando…" : "Guardar comentario"}
-              </button>
-            </div>
-          </form>
-        </Dialog>
-      )}
-      {statusAction === "Cancelada" && (
-        <ConfirmDialog
-          title="Cancelar clase"
-          confirmLabel="Cancelar clase"
-          danger
-          onConfirm={() => changeStatus("Cancelada")}
-          onCancel={() => setStatusAction(undefined)}
-        >
-          {group.name} · {date(current.date)} · {current.time}.{" "}
-          {absences
-            ? `Ya hay ${absences} ${absences === 1 ? "falta registrada" : "faltas registradas"}: se conservan, y la cancelación no agrega faltas nuevas.`
-            : "La cancelación no genera faltas."}{" "}
-          La clase ya no admitirá cambios de asistencia.{" "}
-          <strong>Esta acción no se puede deshacer.</strong> Si sólo cambió la fecha, usa
-          «Reprogramar».
-        </ConfirmDialog>
-      )}
-      {statusAction === "Reprogramada" && (
-        <ConfirmDialog
-          title="Reprogramar clase"
-          confirmLabel="Reprogramar"
-          field={{
-            label: "Nueva fecha de la clase",
-            type: "date",
-            initial: current.date,
-            help: "Se conserva el horario y los participantes de esta clase.",
-          }}
-          onConfirm={(newDate) => changeStatus("Reprogramada", newDate)}
-          onCancel={() => setStatusAction(undefined)}
-        />
-      )}
       {restrictionStudent && (
         <Dialog
           title={`Restricción registrada · ${restrictionStudent.name}`}
@@ -551,13 +388,13 @@ export function SessionDetail({
             <div className="form-actions full-span">
               <button
                 type="button"
-                className="button secondary"
+                className="button danger"
                 data-dialog-close
                 onClick={() => setShowInvite(false)}
               >
                 Cancelar
               </button>
-              <button className="button">Agregar alumno</button>
+              <button className="button confirm">Aceptar</button>
             </div>
           </form>
         </Dialog>

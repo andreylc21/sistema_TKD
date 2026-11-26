@@ -94,6 +94,8 @@
 html {
   min-width: 320px;
   background: var(--surface-alt);
+  /* Reserva el espacio de la barra de desplazamiento: el contenido no se mueve cuando aparece o desaparece. */
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -267,6 +269,7 @@ select:focus-visible,
 }
 
 .topbar-title {
+  flex: 1 1 auto;
   min-width: 0;
   padding: 10px 0;
 }
@@ -333,7 +336,8 @@ select:focus-visible,
   gap: 10px;
 }
 .topbar-date {
-  color: var(--muted);
+  margin-left: auto;
+  color: var(--ink-soft);
   font-size: 0.8rem;
 }
 
@@ -419,6 +423,7 @@ main {
   font-size: 0.9rem;
 }
 .header-actions {
+  margin-left: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -524,6 +529,12 @@ main {
 .card-header h3 {
   margin: 0;
   font-size: 1rem;
+}
+.card-header.large {
+  align-items: center;
+}
+.card-header.large h2 {
+  font-size: 1.35rem;
 }
 .card-header p {
   margin: 4px 0 0;
@@ -814,6 +825,7 @@ main {
 .field {
   min-width: 180px;
   display: grid;
+  align-content: start;
   gap: 5px;
 }
 .field.grow {
@@ -862,11 +874,11 @@ table {
   font-size: 0.9rem;
 }
 th {
-  color: var(--muted);
+  color: var(--ink-soft);
   background: #eef2f7;
   text-align: left;
   white-space: nowrap;
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   letter-spacing: 0.01em;
 }
 th,
@@ -951,6 +963,13 @@ tbody tr:last-child td {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 22px;
+}
+.definition-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0 28px;
+}
+.definition-grid.compact .definition-item {
+  padding: 10px 0;
 }
 .definition-item {
   padding: 13px 0;
@@ -1315,6 +1334,7 @@ legend {
   font-variant-numeric: tabular-nums;
 }
 .dashboard-grid {
+  align-items: start;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
@@ -1745,7 +1765,7 @@ h3,
   font-weight: 600;
 }
 .topbar-heading h1 {
-  font-size: 2.4rem;
+  font-size: 1.9rem;
   letter-spacing: 0.01em;
 }
 .metric-value,
@@ -1830,8 +1850,8 @@ h3,
   font-size: 1rem;
 }
 .topbar-date {
-  font-size: 1.1rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 400;
 }
 
 .section-gap {
@@ -2091,4 +2111,806 @@ h3,
 .toolbar-action {
   margin-left: auto;
   align-self: end;
+}
+
+.card-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.tabs-row .tabs {
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+.tabs-row > .button {
+  margin-bottom: 8px;
+}
+
+.search-box {
+  position: relative;
+}
+.search-box svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.search-box input {
+  padding-left: 38px;
+}
+
+/* Reportes */
+.bar-cell {
+  width: 26%;
+  min-width: 90px;
+}
+.bar {
+  display: block;
+  height: 10px;
+  min-width: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+.row-selected td {
+  background: #f4f7fd;
+}
+.print-only {
+  display: none;
+}
+@media print {
+  .sidebar,
+  .topbar,
+  .no-print,
+  .menu-button {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+  .report-title {
+    margin: 0 0 12px;
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+  .workspace,
+  main {
+    margin: 0;
+    padding: 0;
+  }
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+}
+
+.muted-cell {
+  color: var(--muted);
+}
+
+.button.large {
+  min-height: 38px;
+  padding: 6px 16px;
+  font-size: 0.9rem;
+}
+
+.card > .toolbar {
+  margin-bottom: 0;
+  border-width: 1px 0;
+  border-radius: 0;
+}
+
+.text-button.inline {
+  min-height: 0;
+  display: inline;
+  padding: 0;
+}
+
+.dashboard-column {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  min-width: 0;
+}
+
+.summary-link {
+  color: inherit;
+  text-decoration: none;
+}
+.summary-link:hover {
+  background: var(--surface-alt);
+}
+.class-extra {
+  border-top: 1px solid var(--line);
+}
+.class-extra h3 {
+  margin: 0;
+  padding: 14px 18px 0;
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+.class-note {
+  margin: 0;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.enroll-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+.enroll-form .full-span {
+  grid-column: 1 / -1;
+}
+/* La forma de pago ocupa el mismo ancho que los botones de abajo: de Cancelar a Aceptar. */
+.enroll-form .form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.enroll-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.1;
+}
+.enroll-total span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.enroll-total strong {
+  font-size: 1.6rem;
+}
+.enroll-form .form-actions {
+  grid-column: 2;
+}
+
+.item-line + .item-line {
+  margin-top: 4px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--status-color, var(--muted));
+}
+.status-neutral {
+  --status-color: #8b93a1;
+}
+.status-warning {
+  --status-color: var(--gold);
+}
+.status-success {
+  --status-color: var(--success);
+}
+.status-danger {
+  --status-color: var(--danger);
+}
+
+.fixed-table {
+  table-layout: fixed;
+}
+th.center,
+td.center {
+  text-align: center;
+}
+.fixed-table .button {
+  white-space: nowrap;
+}
+
+.order-line-save {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 2px;
+}
+.order-line-save input {
+  width: auto;
+}
+.order-line .field select + input {
+  margin-top: 6px;
+}
+
+/* Regla de tablas del sistema: la primera columna a la izquierda y todas las demás
+   centradas, con su encabezado alineado igual que sus celdas. */
+th,
+td,
+.num {
+  text-align: center;
+}
+th:first-child,
+td:first-child {
+  text-align: left;
+}
+td .inline-actions {
+  justify-content: center;
+}
+
+/* Ficha del alumno: el formulario se muestra completo y plano; "Editar" lo habilita. */
+.form-body {
+  display: contents;
+  border: 0;
+  padding: 0;
+}
+.form-grid.readonly input:disabled:not([type="checkbox"]),
+.form-grid.readonly select:disabled,
+.form-grid.readonly textarea:disabled {
+  color: var(--ink);
+  background: var(--surface-soft, #f6f7fa);
+  border-color: transparent;
+  opacity: 1;
+  -webkit-text-fill-color: var(--ink);
+  appearance: none;
+  cursor: default;
+}
+.form-grid.readonly .field-hint {
+  display: none;
+}
+.detail-card .card-header h2 {
+  font-size: 1.3rem;
+}
+.button.secondary.edit-button,
+.button.secondary.edit-button:hover:not(:disabled),
+.button.secondary.edit-button:focus-visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #fff;
+  border-color: var(--primary);
+  background: var(--primary);
+  transform: none;
+  transition: none;
+}
+.edit-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+/* La columna derecha mide lo mismo que la ficha: dos tarjetas de media altura cada una. */
+.detail-side {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+  min-height: 0;
+  contain: size;
+}
+.detail-side .detail-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.detail-side .detail-card > :not(.card-header) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.scroll-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 900px) {
+  .detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail-side {
+    contain: none;
+    grid-template-rows: none;
+  }
+  .detail-side .detail-card > :not(.card-header) {
+    max-height: 300px;
+  }
+}
+
+.form-col {
+  display: contents;
+}
+
+/* Ejemplos de captura: gris tenue y, en la ficha en modo lectura, ocultos para no parecer datos. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+.form-grid.readonly input::placeholder,
+.form-grid.readonly textarea::placeholder {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.button.secondary.edit-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.archived-groups {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.archived-groups summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+/* Acción afirmativa (p. ej. Reactivar): verde con letras blancas. */
+.button.success,
+.button.success:hover:not(:disabled) {
+  color: #fff;
+  background: var(--success);
+  border-color: var(--success);
+}
+
+/* Botones de la tarjeta del alumno (Desactivar/Reactivar y Editar): un poco más bajos. */
+.detail-card .card-header .button.small,
+.detail-card .list-row .button.small {
+  min-height: 34px;
+  padding: 4px 12px;
+}
+
+/* Alumnos inactivos en la lista: fila en gris, sin columna de estado. */
+tr.row-inactive td {
+  color: var(--muted);
+}
+tr.row-inactive td strong {
+  color: var(--ink-soft);
+}
+
+/* Clases del día ahora ocupa todo el ancho: los grupos viven en su propia pantalla. */
+.clases-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+.clases-day .session-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+/* Ficha del grupo: datos y alumnos arriba; clases a todo lo ancho. Cada lista se desplaza dentro de su tarjeta. */
+.detail-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.detail-columns .detail-wide {
+  grid-column: 1 / -1;
+}
+.detail-columns .detail-card > ul,
+.detail-columns .detail-card > .empty {
+  max-height: 480px;
+  overflow-y: auto;
+}
+@media (max-width: 900px) {
+  .detail-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Datos de la clase: misma franja del Inicio, pero compacta. */
+.summary-strip.compact .summary-item {
+  padding: 10px 16px;
+}
+.summary-strip.compact .summary-item > span {
+  font-size: 0.78rem;
+}
+.summary-strip.compact .summary-item > strong {
+  margin-top: 2px;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.toolbar .toolbar-end {
+  margin-left: auto;
+}
+
+/* Reportes: cifras agrupadas por tema y gráficas simples. */
+.report-heading {
+  margin: 22px 0 8px;
+  font-size: 1.05rem;
+}
+.summary-item small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.chart {
+  margin: 0;
+  padding: 16px 18px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+.chart figcaption {
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.chart .chart-bars {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: end;
+  gap: 8px;
+  height: 160px;
+}
+.chart .chart-bar {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  text-align: center;
+}
+.chart .chart-bar-value {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.chart .chart-bar-fill {
+  align-self: end;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: #b9c4e6;
+}
+.chart .chart-bar.current .chart-bar-fill {
+  background: var(--primary);
+}
+.chart .chart-bar.current .chart-bar-value {
+  color: var(--ink);
+  font-weight: 700;
+}
+.chart .chart-bar-label,
+.chart .axis {
+  font-size: 0.74rem;
+  fill: var(--muted);
+  color: var(--muted);
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.chart .line {
+  stroke: #9aa9d8;
+  stroke-width: 2;
+}
+.chart .dot {
+  fill: #9aa9d8;
+}
+.chart .dot.current {
+  fill: var(--primary);
+}
+.chart .dot-value {
+  font-size: 10px;
+  fill: var(--ink-soft);
+}
+.report-footnote {
+  margin-top: 16px;
+}
+@media (max-width: 1100px) {
+  .chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.card-note {
+  margin: 0;
+  padding: 14px 20px 18px;
+}
+
+/* Tarjetas apiladas dentro de una columna de la ficha o del Inicio. */
+.detail-stack {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* Un estado (punto + texto) dentro del valor de una fila de lista. */
+.list-row-value > .status {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.period-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* ===== Paleta de botones por tipo de acción =====
+   azul fuerte: principal o crear · azul claro: ver o abrir · verde: confirmar ·
+   rojo claro: peligro · gris oscuro: exportar. */
+.button.secondary {
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  border-color: #cdd6ee;
+}
+.button.secondary:hover:not(:disabled) {
+  background: #dbe2f4;
+}
+.button.secondary.danger {
+  color: var(--danger-dark);
+  background: var(--danger-soft);
+  border-color: #efc3c8;
+}
+.button.secondary.danger:hover:not(:disabled) {
+  background: #f6d9dd;
+}
+.button.export,
+.button.export:hover:not(:disabled) {
+  color: #fff;
+  background: #344054;
+  border-color: #263041;
+}
+.button.export:hover:not(:disabled) {
+  background: #263041;
+}
+
+/* ===== Estados como etiqueta suave ===== */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 3px 11px;
+  border-radius: 999px;
+  color: var(--status-ink);
+  background: var(--status-bg);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status-neutral {
+  --status-bg: #eceff4;
+  --status-ink: #4b5565;
+}
+.status-warning {
+  --status-bg: var(--warning-soft);
+  --status-ink: var(--warning);
+}
+.status-success {
+  --status-bg: var(--success-soft);
+  --status-ink: #17613a;
+}
+.status-danger {
+  --status-bg: var(--danger-soft);
+  --status-ink: var(--danger-dark);
+}
+.list-row-value > .status {
+  color: var(--status-ink);
+  font-size: 0.82rem;
+}
+
+/* ===== Reportes: tarjetas de cifras y gráfica única ===== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  display: grid;
+  gap: 4px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+.stat-label {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.stat-value {
+  font-size: 2.1rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.stat-note.stat-up {
+  color: #17613a;
+}
+.stat-note.stat-down {
+  color: var(--danger-dark);
+}
+.chart.wide {
+  padding: 20px 24px 16px;
+}
+.chart.wide .chart-bars {
+  height: 260px;
+}
+@media (max-width: 1100px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* En la celda del nombre, la etiqueta de estado mide lo que su texto, no todo el ancho. */
+.primary-cell > .status {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+/* ===== Solo el azul principal va sólido; el rojo y el verde fuertes quedan para los estados ===== */
+.button.danger {
+  color: var(--ink-soft);
+  background: #f1f3f7;
+  border-color: #d5dae3;
+}
+.button.danger:hover:not(:disabled) {
+  background: #e4e8ef;
+}
+.button.success,
+.button.success:hover:not(:disabled) {
+  color: #17613a;
+  background: var(--success-soft);
+  border-color: #bfe0cb;
+}
+.button.success:hover:not(:disabled) {
+  background: #d6ecde;
+}
+
+/* Botones dentro de tablas: más bajos, iguales en todas las listas. */
+td .button.small,
+td .edit-button {
+  min-height: 34px;
+  padding: 4px 12px;
+}
+
+/* ===== Estilo sobrio: contornos de color en vez de rellenos pastel; estados como texto ===== */
+.button {
+  border-radius: 4px;
+}
+.button.secondary {
+  color: var(--primary);
+  background: #fff;
+  border-color: var(--primary);
+}
+.button.secondary:hover:not(:disabled) {
+  background: var(--primary-soft);
+}
+.button.secondary.danger {
+  color: var(--danger-dark);
+  background: #fff;
+  border-color: var(--danger);
+}
+.button.secondary.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+.button.success,
+.button.success:hover:not(:disabled) {
+  color: #17613a;
+  background: #fff;
+  border-color: var(--success);
+}
+.button.success:hover:not(:disabled) {
+  background: var(--success-soft);
+}
+.button.danger {
+  color: var(--ink-soft);
+  background: #fff;
+  border-color: #b9c0cd;
+}
+.button.danger:hover:not(:disabled) {
+  background: #eef0f4;
+}
+.button.export,
+.button.export:hover:not(:disabled) {
+  color: #263041;
+  background: #fff;
+  border-color: #263041;
+}
+.button.export:hover:not(:disabled) {
+  background: #eef0f4;
+}
+
+.status {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.status-neutral {
+  --status-ink: #5b6472;
+}
+.status-warning {
+  --status-ink: #8a5a00;
+}
+.list-row-value > .status {
+  font-size: 0.74rem;
+}
+
+/* ===== Cancelar rojo y Aceptar verde, sólidos, en todos los formularios y ventanas ===== */
+.button.danger {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger-dark);
+}
+.button.danger:hover:not(:disabled) {
+  background: var(--danger-dark);
+}
+.button.confirm,
+.button.confirm:hover:not(:disabled) {
+  color: #fff;
+  background: var(--success);
+  border-color: #1b6b3b;
+}
+.button.confirm:hover:not(:disabled) {
+  background: #1d6e3d;
+}
+
+/* Título de la tarjeta de un examen y sus datos como etiquetas gris humo. */
+.exam-title {
+  margin: 0;
+  font-size: 1.7rem;
+  line-height: 1.2;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.chip {
+  padding: 4px 11px;
+  border-radius: 6px;
+  color: #3b4452;
+  background: #e6e9ee;
+  font-size: 0.86rem;
+  font-weight: 600;
 }

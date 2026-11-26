@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Exam, ExamEntry, ExamProgress } from "../../../shared/api/contracts";
 import {
-  canRecordResult,
+  canEditExam,
   defaultDeadline,
-  paymentState,
   sortExams,
+  studentExams,
   targetLabel,
 } from "./examenes.model";
 
@@ -19,6 +19,20 @@ const progress = (target: number, track: ExamProgress["track"]): ExamProgress =>
   missing: [],
 });
 
+const entry = (patch: Partial<ExamEntry>): ExamEntry => ({
+  id: "e",
+  studentId: "s",
+  gradeFrom: "Verde",
+  gradeTo: null,
+  result: "pending",
+  reason: "",
+  chargeId: "c",
+  exception: "",
+  owed: 100,
+  total: 100,
+  ...patch,
+});
+
 describe("examenes.model", () => {
   it("nombra el grado negro al que aspira el alumno", () => {
     expect(targetLabel(progress(1, "dan"))).toBe("1er Dan");
@@ -27,7 +41,7 @@ describe("examenes.model", () => {
     expect(targetLabel(progress(2, "poom"))).toBe("Poom 2");
   });
 
-  it("separa próximos y pasados", () => {
+  it("separa pendientes e historial", () => {
     const exam = (id: string, date: string): Exam => ({
       id,
       kind: "partial",
@@ -36,54 +50,45 @@ describe("examenes.model", () => {
       paymentDeadline: date,
       entries: [],
     });
-    const { upcoming, past } = sortExams(
+    const open: Exam = {
+      ...exam("e", "2026-02-01"),
+      entries: [{ ...entry({}), result: "pending" }],
+    };
+    const { pending, history } = sortExams(
       [
         exam("a", "2026-03-01"),
         exam("b", "2026-12-01"),
         exam("c", "2026-11-30"),
         exam("d", "2026-01-01"),
+        open,
       ],
       "2026-11-24",
     );
-    expect(upcoming.map((item) => item.id)).toEqual(["c", "b"]);
-    expect(past.map((item) => item.id)).toEqual(["a", "d"]);
+    expect(pending.map((item) => item.id)).toEqual(["e", "c", "b"]);
+    expect(history.map((item) => item.id)).toEqual(["a", "d"]);
+    expect(canEditExam(open)).toBe(true);
+    expect(canEditExam({ ...open, entries: [{ ...entry({}), result: "passed" }] })).toBe(false);
   });
 });
 
 describe("pago del examen", () => {
-  const entry = (patch: Partial<ExamEntry>): ExamEntry => ({
-    id: "e",
-    studentId: "s",
-    gradeFrom: "Verde",
-    gradeTo: null,
-    result: "pending",
-    reason: "",
-    chargeId: "c",
-    exception: "",
-    owed: 100,
-    total: 100,
-    ...patch,
+  it("propone el plazo una semana antes del examen", () => {
+    expect(defaultDeadline("2026-12-15")).toBe("2026-12-08");
   });
 
-  it("propone el plazo según el tipo de examen", () => {
-    expect(defaultDeadline("partial", "2026-12-15")).toBe("2026-12-01");
-    expect(defaultDeadline("black", "2026-12-15")).toBe("2026-11-15");
-  });
-
-  it("distingue pagado, pendiente, vencido y excepción", () => {
-    expect(paymentState(entry({ owed: 0 }), "2026-12-01", "2026-12-20")).toBe("paid");
-    expect(paymentState(entry({}), "2026-12-01", "2026-11-20")).toBe("pending");
-    expect(paymentState(entry({ owed: 40 }), "2026-12-01", "2026-11-20")).toBe("partial");
-    expect(paymentState(entry({}), "2026-12-01", "2026-12-02")).toBe("overdue");
-    expect(paymentState(entry({ exception: "Beca" }), "2026-12-01", "2026-12-02")).toBe(
-      "exception",
+  it("junta los exámenes de un alumno, del más reciente al más antiguo", () => {
+    const exam = (id: string, date: string, studentId: string): Exam => ({
+      id,
+      kind: "partial",
+      date,
+      fee: 0,
+      paymentDeadline: date,
+      entries: [{ ...entry({}), id: `en-${id}`, studentId }],
+    });
+    const rows = studentExams(
+      [exam("a", "2026-01-01", "s"), exam("b", "2026-06-01", "s"), exam("c", "2026-07-01", "x")],
+      "s",
     );
-  });
-
-  it("sólo permite registrar el resultado con pago o excepción", () => {
-    expect(canRecordResult("paid")).toBe(true);
-    expect(canRecordResult("exception")).toBe(true);
-    expect(canRecordResult("pending")).toBe(false);
-    expect(canRecordResult("overdue")).toBe(false);
+    expect(rows.map((row) => row.exam.id)).toEqual(["b", "a"]);
   });
 });

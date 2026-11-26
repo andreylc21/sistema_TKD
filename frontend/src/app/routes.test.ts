@@ -11,33 +11,20 @@ describe("matchRoute", () => {
       name: "alumno-editar",
       studentId: "s1",
     });
-    expect(matchRoute(paths.notas("s1"))).toEqual({ name: "notas", studentId: "s1" });
-    expect(matchRoute(paths.notaNueva("s1"))).toEqual({ name: "nota-nueva", studentId: "s1" });
-    expect(matchRoute(paths.notaEditar("s1", "n1"))).toEqual({
-      name: "nota-editar",
-      studentId: "s1",
-      noteId: "n1",
-    });
     expect(matchRoute(paths.grupoNuevo)).toEqual({ name: "grupo-nuevo" });
-    expect(matchRoute(paths.grupoEditar("g1"))).toEqual({ name: "grupo-editar", groupId: "g1" });
-    expect(matchRoute(paths.sesion("c1"))).toEqual({ name: "sesion", sessionId: "c1" });
-    expect(matchRoute(paths.sesionNota("c1", "s1"))).toEqual({
-      name: "sesion-nota",
-      sessionId: "c1",
-      studentId: "s1",
-    });
+    expect(matchRoute(paths.grupos)).toEqual({ name: "grupos" });
+    expect(matchRoute(paths.grupo("g1"))).toEqual({ name: "grupo", groupId: "g1" });
+    expect(matchRoute("/clases/grupos")).toEqual({ name: "grupos" });
+    expect(matchRoute("/clases/grupos/g1/editar")).toEqual({ name: "grupo", groupId: "g1" });
+    expect(matchRoute(paths.sesion("g1", "c1"))).toEqual({ name: "sesion", sessionId: "c1" });
+    expect(matchRoute("/clases/sesiones/c1")).toEqual({ name: "sesion", sessionId: "c1" });
     expect(matchRoute(paths.pedidoNuevo)).toEqual({ name: "pedido-nuevo" });
-    expect(matchRoute(paths.pedido("o1"))).toEqual({ name: "pedido", orderId: "o1" });
+    expect(matchRoute("/pedidos/P-102")).toEqual({ name: "pedidos" });
     expect(matchRoute(paths.reportes)).toEqual({ name: "reportes" });
   });
 
   it("conserva la vista y los filtros que viajan en la URL", () => {
-    expect(matchRoute(paths.clases("day", "2026-10-05"))).toEqual({
-      name: "clases",
-      view: "day",
-      date: "2026-10-05",
-    });
-    expect(matchRoute(paths.clases("groups"))).toEqual({ name: "clases", view: "groups" });
+    expect(matchRoute("/clases?fecha=2026-10-05")).toEqual({ name: "grupos" });
     expect(matchRoute(paths.pagos("Por vencer"))).toEqual({
       name: "pagos",
       due: "Por vencer",
@@ -65,9 +52,10 @@ describe("matchRoute", () => {
   });
 
   it("decodifica identificadores y rechaza rutas desconocidas", () => {
-    expect(matchRoute(paths.pedido("P/01"))).toEqual({ name: "pedido", orderId: "P/01" });
+    expect(matchRoute(paths.alumno("A/01"))).toEqual({ name: "alumno", studentId: "A/01" });
     expect(matchRoute(paths.examenes)).toEqual({ name: "examenes" });
     expect(matchRoute(paths.examenNuevo)).toEqual({ name: "examen-nuevo" });
+    expect(matchRoute(paths.examenEditar("x"))).toEqual({ name: "examen-editar", examId: "x" });
     expect(matchRoute("/desconocida")).toEqual({ name: "no-encontrada" });
     expect(matchRoute("/alumnos/s1/otra")).toEqual({ name: "no-encontrada" });
   });

@@ -1,6 +1,7 @@
 import type { components } from "./generated";
 
-export type Grade = { id: string; name: string };
+export type CatalogItem = { id: string; name: string; sizes: string[]; price: number };
+export type Grade = { id: string; name: string; track: "color" | "poom" | "dan"; level: number };
 export type Student = {
   id: string;
   name: string;
@@ -13,6 +14,7 @@ export type Student = {
   gradeId: string;
   status: "Activo" | "Inactivo";
   email: string;
+  phone: string;
   emailOwner: string;
   primary: string;
   primaryName: string;
@@ -25,6 +27,8 @@ export type Student = {
   restrictions: string;
   healthConsent: boolean;
   enrollmentDate: string;
+  /** Fecha en que se dio de baja; nulo mientras el alumno siga activo. */
+  inactiveAt: string | null;
   billingDay: number;
   groups: string[];
   notes: string[];
@@ -49,6 +53,8 @@ export type Group = {
   students: string[];
   /** Alumnos fuera del perfil de edad que la maestra decidió mantener en el grupo. */
   kept: string[];
+  /** Grupo archivado: conserva su historial pero ya no se usa para asignar ni programar clases. */
+  archived: boolean;
   version: number;
 };
 export type Attendance = {
@@ -64,6 +70,10 @@ export type Session = {
   date: string;
   time: string;
   status: "Programada" | "Cancelada" | "Reprogramada";
+  /** Hora real en que se dio la clase; nulo si todavía no se ha dado. */
+  startedAt: string | null;
+  /** Hora en que se terminó con el botón; si no, termina sola al pasar su duración. */
+  endedAt: string | null;
   attendance: Attendance[];
   version: number;
 };
@@ -147,6 +157,7 @@ export type Bootstrap = {
   demoMode?: boolean;
   csrfToken: string;
   grades: Grade[];
+  catalog: CatalogItem[];
   students: Student[];
   notes: Note[];
   groups: Group[];
@@ -165,6 +176,7 @@ export type SessionResponse = components["schemas"]["SessionResponse"];
 export type StudentWrite = components["schemas"]["StudentWrite"];
 export type StudentStatusWrite = components["schemas"]["StudentStatusWrite"];
 export type NoteWrite = components["schemas"]["NoteWrite"];
+export type GroupVersion = components["schemas"]["GroupVersion"];
 export type GroupWrite = components["schemas"]["GroupWrite"];
 export type MoveStudentWrite = components["schemas"]["MoveStudentWrite"];
 export type KeepStudentWrite = components["schemas"]["KeepStudentWrite"];
@@ -177,6 +189,13 @@ export type PaymentWrite = components["schemas"]["PaymentWrite"];
 export type VoidPaymentWrite = components["schemas"]["VoidPaymentWrite"];
 export type DiscountWrite = components["schemas"]["DiscountWrite"];
 export type ExamWrite = components["schemas"]["ExamWrite"];
+export type CatalogWrite = components["schemas"]["CatalogWrite"];
+export type SchoolWrite = components["schemas"]["SchoolWrite"];
+export type GradeCreate = components["schemas"]["GradeCreate"];
+export type GradeRename = components["schemas"]["GradeRename"];
+export type GradeMove = components["schemas"]["GradeMove"];
+export type GradeRemove = components["schemas"]["GradeRemove"];
+export type ExamUpdate = components["schemas"]["ExamUpdate"];
 export type ExamEnrollWrite = components["schemas"]["ExamEnrollWrite"];
 export type ExamExceptionWrite = components["schemas"]["ExamExceptionWrite"];
 export type ExamResultWrite = components["schemas"]["ExamResultWrite"];

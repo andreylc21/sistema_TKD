@@ -1,67 +1,124 @@
-import type { Bootstrap } from "../../shared/api/contracts";
-import { date } from "../../shared/lib/format";
 import { useState } from "react";
+import type { Bootstrap } from "../../shared/api/contracts";
+import { Card } from "../../shared/ui/Card";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
-import { Money } from "../../shared/ui/Money";
+import { EditButton } from "../../shared/ui/EditButton";
 import { PageHeader } from "../../shared/ui/PageHeader";
+import { Tabs } from "../../shared/ui/Tabs";
+import { CatalogTable } from "./components/CatalogCard";
+import { GradesTable } from "./components/GradesCard";
+import { SchoolForm } from "./components/SchoolForm";
+
+const tabs = [
+  { id: "escuela", label: "Escuela" },
+  { id: "articulos", label: "Artículos" },
+  { id: "grados", label: "Grados" },
+] as const;
+type Tab = (typeof tabs)[number]["id"];
+
 export function ConfiguracionPage({
   data,
   onReset,
+  reload,
 }: {
   data: Bootstrap;
   onReset: () => Promise<void>;
+  reload: () => Promise<void>;
 }) {
+  const [tab, setTab] = useState<Tab>("escuela");
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+
   async function reset(value: string) {
     if (value !== "RESTABLECER")
       throw new Error("Escribe RESTABLECER, en mayúsculas, para continuar.");
     await onReset();
   }
+
+  function change(next: Tab) {
+    setTab(next);
+    setAdding(false);
+  }
+
   return (
     <>
-      <PageHeader help="Consulta los datos generales y parámetros operativos de la escuela." />
-      <section className="card">
-        <div className="card-body">
-          <dl className="definition-grid">
-            <div className="definition-item">
-              <dt>Escuela</dt>
-              <dd>{data.school.name}</dd>
-            </div>
-            <div className="definition-item">
-              <dt>Propietaria</dt>
-              <dd>{data.school.owner}</dd>
-            </div>
-            <div className="definition-item">
-              <dt>Mensualidad general</dt>
-              <dd>
-                <Money value={data.school.fee} />
-              </dd>
-            </div>
-            <div className="definition-item">
-              <dt>Fecha operativa</dt>
-              <dd>{date(data.demoDate)}</dd>
-            </div>
-          </dl>
-        </div>
-      </section>
-      {data.demoMode && (
-        <section className="card spacer-top">
-          <div className="card-header">
-            <div>
-              <h2>Restablecimiento de datos</h2>
-              <p>Recupera la información inicial de la escuela y cierra la sesión actual.</p>
-            </div>
-            <button className="button secondary danger" onClick={() => setConfirming(true)}>
-              Restablecer datos
+      <PageHeader help="Escuela: nombre, propietaria y mensualidad. Artículos: catálogo para los pedidos. Grados: lista de cintas; al terminar las de color, el alumno puede pasar al examen de cinta negra." />
+      <Tabs
+        label="Configuración"
+        items={tabs}
+        value={tab}
+        onChange={change}
+        action={
+          tab === "articulos" ? (
+            <button className="button" onClick={() => setAdding(true)}>
+              Agregar artículo
             </button>
-          </div>
-        </section>
+          ) : tab === "grados" ? (
+            <button className="button" onClick={() => setAdding(true)}>
+              Agregar grado
+            </button>
+          ) : undefined
+        }
+      />
+      {tab === "escuela" && (
+        <>
+          <Card
+            title="Datos de la escuela"
+            padded
+            actions={!editing && <EditButton onClick={() => setEditing(true)} />}
+          >
+            <SchoolForm
+              key={editing ? "edit" : "view"}
+              school={data.school}
+              today={data.demoDate}
+              readOnly={!editing}
+              onDone={async () => {
+                await reload();
+                setEditing(false);
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          </Card>
+          {data.demoMode && (
+            <Card
+              title="Restablecimiento de datos"
+              className="spacer-top"
+              actions={
+                <button
+                  className="button secondary small danger"
+                  onClick={() => setConfirming(true)}
+                >
+                  Restablecer datos
+                </button>
+              }
+            >
+              <p className="help card-note">
+                Recupera la información inicial de la escuela y cierra la sesión actual.
+              </p>
+            </Card>
+          )}
+        </>
+      )}
+      {tab === "articulos" && (
+        <CatalogTable
+          data={data}
+          reload={reload}
+          adding={adding}
+          onCloseAdd={() => setAdding(false)}
+        />
+      )}
+      {tab === "grados" && (
+        <GradesTable
+          data={data}
+          reload={reload}
+          adding={adding}
+          onCloseAdd={() => setAdding(false)}
+        />
       )}
       {confirming && (
         <ConfirmDialog
           title="Restablecer datos"
-          confirmLabel="Restablecer datos"
-          danger
           field={{ label: "Escribe RESTABLECER para confirmar" }}
           onConfirm={reset}
           onCancel={() => setConfirming(false)}

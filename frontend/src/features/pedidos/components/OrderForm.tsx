@@ -2,18 +2,31 @@ import { useRef, useState, type FormEvent } from "react";
 import type { Bootstrap, OrderWrite } from "../../../shared/api/contracts";
 import { money } from "../../../shared/lib/format";
 import { Notice } from "../../../shared/ui/PageHeader";
+import { createCatalogItem } from "../../configuracion/api/configuracion.api";
 import { createOrder } from "../../pagos/api/pagos.api";
 
-type Line = { key: string; name: string; size: string; quantity: string; price: string };
+/** catalogId vacío = artículo escrito a mano ("Otro artículo"). */
+type Line = {
+  key: string;
+  catalogId: string;
+  name: string;
+  size: string;
+  quantity: string;
+  price: string;
+  save: boolean;
+};
+const OTHER = "other";
 const newLine = (): Line => ({
   key: crypto.randomUUID(),
+  catalogId: "",
   name: "",
+  save: false,
   size: "",
   quantity: "1",
   price: "",
 });
 
-/** Registro rápido: alumno, artículos y, por defecto, el pedido ya pagado. */
+/** Registro rápido: alumno, artículos y forma de pago. Registrar un pedido es pagarlo completo. */
 export function OrderForm({
   data,
   onSaved,
@@ -24,7 +37,6 @@ export function OrderForm({
   onCancel: () => void;
 }) {
   const [lines, setLines] = useState<Line[]>([newLine()]);
-  const [paidNow, setPaidNow] = useState(true);
   const [delivered, setDelivered] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -52,23 +64,32 @@ export function OrderForm({
       }));
     const body: OrderWrite = {
       studentId: String(values.studentId),
-      dueDate: String(paidNow ? values.paidOn : values.dueDate),
+      dueDate: data.demoDate,
       items,
       delivered,
-      ...(paidNow
-        ? {
-            payment: {
-              date: String(values.paidOn),
-              method: String(values.method) as NonNullable<OrderWrite["payment"]>["method"],
-            },
-          }
-        : {}),
+      payment: {
+        date: data.demoDate,
+        method: String(values.method) as NonNullable<OrderWrite["payment"]>["method"],
+      },
     };
     setBusy(true);
     setError("");
     try {
       await createOrder(body, idempotencyKey.current);
       idempotencyKey.current = crypto.randomUUID();
+      // Los artículos nuevos que se marcaron se guardan en el catálogo; si ya existían, no pasa nada.
+      for (const line of lines.filter((item) => item.catalogId === OTHER && item.save)) {
+        if (!line.name.trim() || !line.price) continue;
+        try {
+          await createCatalogItem({
+            name: line.name.trim(),
+            sizes: line.size.trim() ? [line.size.trim()] : [],
+            price: line.price,
+          });
+        } catch {
+          /* ya estaba en el catálogo */
+        }
+      }
       await onSaved();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo registrar el pedido.");
@@ -78,13 +99,13 @@ export function OrderForm({
   }
 
   return (
-    <form className="form-grid" onSubmit={submit}>
+    <form className="form-grid enroll-form" onSubmit={submit}>
       {error && (
         <div className="full-span">
           <Notice kind="error">{error}</Notice>
         </div>
       )}
-      <div className="field full-span">
+      <div className="field">
         <label htmlFor="order-student">Alumno</label>
         <select id="order-student" name="studentId" required defaultValue="">
           <option value="" disabled>
@@ -100,64 +121,135 @@ export function OrderForm({
             ))}
         </select>
       </div>
+      <div className="field">
+        <label htmlFor="pay-method">Forma de pago</label>
+        <select id="pay-method" name="method" defaultValue="Efectivo">
+          <option>Efectivo</option>
+          <option>Transferencia</option>
+          <option>Tarjeta</option>
+          <option>Otro</option>
+        </select>
+      </div>
       <fieldset className="full-span order-lines">
         <legend>Artículos</legend>
-        {lines.map((line, index) => (
-          <div className="order-line" key={line.key}>
-            <div className="field order-line-name">
-              <label htmlFor={`item-${line.key}`}>
-                {index === 0 ? "Artículo" : `Artículo ${index + 1}`}
-              </label>
-              <input
-                id={`item-${line.key}`}
-                value={line.name}
-                onChange={(event) => update(line.key, { name: event.target.value })}
-                required={index === 0}
-              />
+        {lines.map((line, index) => {
+          const item = data.catalog.find((entry) => entry.id === line.catalogId);
+          const custom = line.catalogId === OTHER;
+          return (
+            <div className="order-line" key={line.key}>
+              <div className="field order-line-name">
+                <label htmlFor={`item-${line.key}`}>
+                  {index === 0 ? "Artículo" : `Artículo ${index + 1}`}
+                </label>
+                <select
+                  id={`item-${line.key}`}
+                  value={line.catalogId}
+                  required={index === 0}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    const picked = data.catalog.find((entry) => entry.id === value);
+                    update(line.key, {
+                      catalogId: value,
+                      name: picked?.name ?? "",
+                      size: "",
+                      price: picked ? picked.price.toFixed(2) : "",
+                      save: false,
+                    });
+                  }}
+                >
+                  <option value="" disabled>
+                    Elige un artículo
+                  </option>
+                  {data.catalog.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name}
+                    </option>
+                  ))}
+                  <option value={OTHER}>Otro artículo…</option>
+                </select>
+                {custom && (
+                  <input
+                    aria-label="Nombre del artículo"
+                    placeholder="Nombre del artículo"
+                    value={line.name}
+                    onChange={(event) => update(line.key, { name: event.target.value })}
+                    required
+                  />
+                )}
+              </div>
+              <div className="field">
+                <label htmlFor={`size-${line.key}`}>Talla</label>
+                {item && item.sizes.length ? (
+                  <select
+                    id={`size-${line.key}`}
+                    value={line.size}
+                    onChange={(event) => update(line.key, { size: event.target.value })}
+                    required
+                  >
+                    <option value="" disabled>
+                      Elige
+                    </option>
+                    {item.sizes.map((size) => (
+                      <option key={size}>{size}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id={`size-${line.key}`}
+                    value={line.size}
+                    disabled={Boolean(item)}
+                    onChange={(event) => update(line.key, { size: event.target.value })}
+                    placeholder="Ej. 140"
+                  />
+                )}
+              </div>
+              <div className="field">
+                <label htmlFor={`qty-${line.key}`}>Cant.</label>
+                <input
+                  id={`qty-${line.key}`}
+                  type="number"
+                  min="1"
+                  value={line.quantity}
+                  onChange={(event) => update(line.key, { quantity: event.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor={`price-${line.key}`}>Precio</label>
+                <input
+                  id={`price-${line.key}`}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={line.price}
+                  onChange={(event) => update(line.key, { price: event.target.value })}
+                  required={index === 0}
+                  placeholder="Ej. 450.00"
+                />
+              </div>
+              {lines.length > 1 && (
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() =>
+                    setLines((previous) => previous.filter((entry) => entry.key !== line.key))
+                  }
+                >
+                  Quitar
+                </button>
+              )}
+              {custom && (
+                <label className="check order-line-save">
+                  <input
+                    type="checkbox"
+                    checked={line.save}
+                    onChange={(event) => update(line.key, { save: event.target.checked })}
+                  />
+                  Guardar en el catálogo
+                </label>
+              )}
             </div>
-            <div className="field">
-              <label htmlFor={`size-${line.key}`}>Talla</label>
-              <input
-                id={`size-${line.key}`}
-                value={line.size}
-                onChange={(event) => update(line.key, { size: event.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor={`qty-${line.key}`}>Cant.</label>
-              <input
-                id={`qty-${line.key}`}
-                type="number"
-                min="1"
-                value={line.quantity}
-                onChange={(event) => update(line.key, { quantity: event.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor={`price-${line.key}`}>Precio</label>
-              <input
-                id={`price-${line.key}`}
-                type="number"
-                min="0"
-                step="0.01"
-                value={line.price}
-                onChange={(event) => update(line.key, { price: event.target.value })}
-                required={index === 0}
-              />
-            </div>
-            {lines.length > 1 && (
-              <button
-                type="button"
-                className="text-button"
-                onClick={() =>
-                  setLines((previous) => previous.filter((item) => item.key !== line.key))
-                }
-              >
-                Quitar
-              </button>
-            )}
-          </div>
-        ))}
+          );
+        })}
         <button
           type="button"
           className="text-button align-start"
@@ -165,44 +257,7 @@ export function OrderForm({
         >
           + Agregar artículo
         </button>
-        <p className="order-total">
-          Total: <strong>{money(total)}</strong>
-        </p>
       </fieldset>
-      <label className="check full-span">
-        <input
-          type="checkbox"
-          checked={paidNow}
-          onChange={(event) => setPaidNow(event.target.checked)}
-        />
-        Pagado completo al registrar
-      </label>
-      {paidNow ? (
-        <>
-          <div className="field">
-            <label htmlFor="paid-on">Fecha del pago</label>
-            <input id="paid-on" name="paidOn" type="date" defaultValue={data.demoDate} required />
-          </div>
-          <div className="field">
-            <label htmlFor="pay-method">
-              Forma <span>(opcional)</span>
-            </label>
-            <select id="pay-method" name="method">
-              <option value="">Sin especificar</option>
-              <option>Efectivo</option>
-              <option>Transferencia</option>
-              <option>Tarjeta</option>
-              <option>Otro</option>
-            </select>
-          </div>
-        </>
-      ) : (
-        <div className="field full-span">
-          <label htmlFor="due">Fecha límite de pago</label>
-          <input id="due" name="dueDate" type="date" defaultValue={data.demoDate} required />
-          <span className="field-hint">El saldo quedará pendiente en Cobros.</span>
-        </div>
-      )}
       <label className="check full-span">
         <input
           type="checkbox"
@@ -211,12 +266,16 @@ export function OrderForm({
         />
         Ya se entregó al alumno
       </label>
-      <div className="form-actions full-span">
-        <button type="button" className="button secondary" onClick={onCancel}>
+      <div className="enroll-total">
+        <span>Total a cobrar</span>
+        <strong>{money(total)}</strong>
+      </div>
+      <div className="form-actions">
+        <button type="button" className="button danger" onClick={onCancel}>
           Cancelar
         </button>
-        <button className="button" disabled={busy}>
-          {busy ? "Registrando…" : "Registrar pedido"}
+        <button className="button confirm" disabled={busy}>
+          {busy ? "Guardando…" : "Aceptar"}
         </button>
       </div>
     </form>

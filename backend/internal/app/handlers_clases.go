@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"sistema-tkd/backend/internal/clases"
+	"sistema-tkd/backend/internal/store"
 )
 
 func (s *Server) createGroup(c *gin.Context) {
@@ -85,7 +86,7 @@ func (s *Server) assignStudent(c *gin.Context) {
 		fail(c, 400, "Alumno y fecha son obligatorios")
 		return
 	}
-	_, e := s.DB.Exec(c, `INSERT INTO group_assignments(school_id,group_id,student_id,assigned_from,age_kept) SELECT $1,g.id,st.id,$4,((g.min_age IS NOT NULL AND date_part('year',age($4::date,st.birth_date))<g.min_age) OR (g.max_age IS NOT NULL AND date_part('year',age($4::date,st.birth_date))>g.max_age)) FROM class_groups g JOIN students st ON st.id=$3 AND st.school_id=$1 WHERE g.id=$2 AND g.school_id=$1 ON CONFLICT DO NOTHING`, c.GetString("school"), c.Param("id"), in.StudentID, in.AssignedFrom)
+	_, e := s.DB.Exec(c, `INSERT INTO group_assignments(school_id,group_id,student_id,assigned_from,age_kept) SELECT $1,g.id,st.id,$4,((g.min_age IS NOT NULL AND date_part('year',age($4::date,st.birth_date))<g.min_age) OR (g.max_age IS NOT NULL AND date_part('year',age($4::date,st.birth_date))>g.max_age)) FROM class_groups g JOIN students st ON st.id=$3 AND st.school_id=$1 WHERE g.id=$2 AND g.school_id=$1 AND g.archived_at IS NULL ON CONFLICT DO NOTHING`, c.GetString("school"), c.Param("id"), in.StudentID, in.AssignedFrom)
 	if e != nil {
 		fail(c, 400, "No se pudo asignar el alumno")
 		return
@@ -111,7 +112,7 @@ func (s *Server) createSession(c *gin.Context) {
 	}
 	defer tx.Rollback(c)
 	var id string
-	e = tx.QueryRow(c, `INSERT INTO class_sessions(school_id,group_id,session_date,start_time,end_time) SELECT $1,g.id,$3,$4,$5 FROM class_groups g WHERE g.id=$2 AND g.school_id=$1 ON CONFLICT(school_id,group_id,session_date) DO UPDATE SET group_id=EXCLUDED.group_id RETURNING id::text`, c.GetString("school"), in.GroupID, in.Date, in.Start, in.End).Scan(&id)
+	e = tx.QueryRow(c, `INSERT INTO class_sessions(school_id,group_id,session_date,start_time,end_time,started_at) SELECT $1,g.id,$3,$4,$5,now() FROM class_groups g WHERE g.id=$2 AND g.school_id=$1 AND g.archived_at IS NULL ON CONFLICT(school_id,group_id,session_date) DO UPDATE SET group_id=EXCLUDED.group_id,started_at=CASE WHEN class_sessions.status='scheduled' THEN coalesce(class_sessions.started_at,now()) ELSE now() END,ended_at=CASE WHEN class_sessions.status='scheduled' THEN class_sessions.ended_at ELSE NULL END,status='scheduled',version=class_sessions.version+(CASE WHEN class_sessions.status='scheduled' THEN 0 ELSE 1 END) RETURNING id::text`, c.GetString("school"), in.GroupID, in.Date, in.Start, in.End).Scan(&id)
 	if e == nil {
 		_, e = tx.Exec(c, `INSERT INTO session_participants(school_id,session_id,student_id) SELECT $1,$2,a.student_id FROM group_assignments a WHERE a.group_id=$3 AND a.assigned_from<=$4 AND (a.assigned_to IS NULL OR a.assigned_to>=$4) ON CONFLICT(session_id,student_id) DO NOTHING`, c.GetString("school"), id, in.GroupID, in.Date)
 	}
@@ -133,7 +134,7 @@ func (s *Server) inviteParticipant(c *gin.Context) {
 		fail(c, 400, "Alumno inválido")
 		return
 	}
-	tag, e := s.DB.Exec(c, `INSERT INTO session_participants(school_id,session_id,student_id,temporary) SELECT $1,cs.id,st.id,true FROM class_sessions cs JOIN students st ON st.id=$3 AND st.school_id=$1 WHERE cs.id=$2 AND cs.school_id=$1 AND cs.status='scheduled' ON CONFLICT(session_id,student_id) DO NOTHING`, c.GetString("school"), c.Param("id"), in.StudentID)
+	tag, e := s.DB.Exec(c, `INSERT INTO session_participants(school_id,session_id,student_id,temporary) SELECT $1,cs.id,st.id,true FROM class_sessions cs JOIN students st ON st.id=$3 AND st.school_id=$1 WHERE cs.id=$2 AND cs.school_id=$1 AND cs.status='scheduled' AND cs.ended_at IS NULL AND (cs.started_at IS NULL OR now() < cs.started_at+(cs.end_time-cs.start_time)) ON CONFLICT(session_id,student_id) DO NOTHING`, c.GetString("school"), c.Param("id"), in.StudentID)
 	if e != nil {
 		fail(c, 400, "No se pudo invitar")
 		return
@@ -154,7 +155,7 @@ func (s *Server) attendance(c *gin.Context) {
 		fail(c, 400, "Asistencia inválida")
 		return
 	}
-	tag, e := s.DB.Exec(c, `UPDATE session_participants p SET attendance_status=$1,observation=$2,version=p.version+1 WHERE p.school_id=$3 AND p.session_id=$4 AND p.student_id=$5 AND p.version=$6 AND EXISTS(SELECT 1 FROM class_sessions cs WHERE cs.id=p.session_id AND cs.school_id=$3 AND cs.status='scheduled')`, clases.AttendanceCode(in.Status), in.Observation, c.GetString("school"), c.Param("id"), c.Param("student"), in.Version)
+	tag, e := s.DB.Exec(c, `UPDATE session_participants p SET attendance_status=$1,observation=$2,version=p.version+1 WHERE p.school_id=$3 AND p.session_id=$4 AND p.student_id=$5 AND p.version=$6 AND EXISTS(SELECT 1 FROM class_sessions cs WHERE cs.id=p.session_id AND cs.school_id=$3 AND cs.status='scheduled' AND cs.ended_at IS NULL AND (cs.started_at IS NULL OR now() < cs.started_at+(cs.end_time-cs.start_time)))`, clases.AttendanceCode(in.Status), in.Observation, c.GetString("school"), c.Param("id"), c.Param("student"), in.Version)
 	if e != nil || tag.RowsAffected() == 0 {
 		fail(c, 409, "La asistencia cambió o la clase ya no admite cambios; recarga")
 		return
@@ -272,6 +273,94 @@ func (s *Server) keepStudent(c *gin.Context) {
 	tag, e := s.DB.Exec(c, `UPDATE group_assignments SET age_kept=true WHERE school_id=$1 AND group_id=$2 AND student_id=$3 AND assigned_to IS NULL`, c.GetString("school"), c.Param("id"), in.StudentID)
 	if e != nil || tag.RowsAffected() == 0 {
 		fail(c, 404, "El alumno no está asignado a este grupo")
+		return
+	}
+	c.Status(204)
+}
+
+// archiveGroup oculta el grupo sin borrar su historial y saca de él a sus alumnos desde hoy.
+func (s *Server) archiveGroup(c *gin.Context) {
+	var in struct {
+		Version int `json:"version"`
+	}
+	if c.ShouldBindJSON(&in) != nil || in.Version < 1 {
+		fail(c, 400, "Versión inválida")
+		return
+	}
+	school := c.GetString("school")
+	today := store.DemoNow(s.Config).Format("2006-01-02")
+	tx, e := s.DB.Begin(c)
+	if e != nil {
+		fail(c, 500, "No se pudo archivar el grupo")
+		return
+	}
+	defer tx.Rollback(c)
+	tag, e := tx.Exec(c, `UPDATE class_groups SET archived_at=now(),version=version+1,updated_at=now() WHERE id=$1 AND school_id=$2 AND version=$3 AND archived_at IS NULL`, c.Param("id"), school, in.Version)
+	if e != nil {
+		fail(c, 500, "No se pudo archivar el grupo")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		fail(c, 409, errConflict.Error())
+		return
+	}
+	if _, e = tx.Exec(c, `DELETE FROM group_assignments WHERE school_id=$1 AND group_id=$2 AND assigned_to IS NULL AND assigned_from>=$3`, school, c.Param("id"), today); e == nil {
+		_, e = tx.Exec(c, `UPDATE group_assignments SET assigned_to=$3::date-1 WHERE school_id=$1 AND group_id=$2 AND assigned_to IS NULL`, school, c.Param("id"), today)
+	}
+	if e != nil {
+		fail(c, 500, "No se pudo sacar a los alumnos del grupo")
+		return
+	}
+	if e = tx.Commit(c); e != nil {
+		fail(c, 500, "No se pudo guardar el cambio")
+		return
+	}
+	c.Status(204)
+}
+
+func (s *Server) restoreGroup(c *gin.Context) {
+	var in struct {
+		Version int `json:"version"`
+	}
+	if c.ShouldBindJSON(&in) != nil || in.Version < 1 {
+		fail(c, 400, "Versión inválida")
+		return
+	}
+	tag, e := s.DB.Exec(c, `UPDATE class_groups SET archived_at=NULL,version=version+1,updated_at=now() WHERE id=$1 AND school_id=$2 AND version=$3 AND archived_at IS NOT NULL`, c.Param("id"), c.GetString("school"), in.Version)
+	if e != nil {
+		fail(c, 500, "No se pudo restaurar el grupo")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		fail(c, 409, errConflict.Error())
+		return
+	}
+	c.Status(204)
+}
+
+// deleteGroup solo borra grupos que nunca tuvieron clases; los demás se archivan.
+func (s *Server) deleteGroup(c *gin.Context) {
+	tag, e := s.DB.Exec(c, `DELETE FROM class_groups g WHERE g.id=$1 AND g.school_id=$2 AND NOT EXISTS (SELECT 1 FROM class_sessions x WHERE x.group_id=g.id)`, c.Param("id"), c.GetString("school"))
+	if e != nil {
+		fail(c, 500, "No se pudo borrar el grupo")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		fail(c, 409, "El grupo ya tiene clases registradas; archívalo en su lugar")
+		return
+	}
+	c.Status(204)
+}
+
+// finishSession termina la clase: guarda la hora de fin y ya no admite cambios de asistencia.
+func (s *Server) finishSession(c *gin.Context) {
+	tag, e := s.DB.Exec(c, `UPDATE class_sessions SET ended_at=now(),started_at=coalesce(started_at,now()),version=version+1,updated_at=now() WHERE id=$1 AND school_id=$2 AND status='scheduled' AND ended_at IS NULL`, c.Param("id"), c.GetString("school"))
+	if e != nil {
+		fail(c, 500, "No se pudo terminar la clase")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		fail(c, 409, "La clase ya terminó o no se puede terminar")
 		return
 	}
 	c.Status(204)

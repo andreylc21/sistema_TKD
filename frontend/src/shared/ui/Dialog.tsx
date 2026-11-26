@@ -115,14 +115,14 @@ export function Dialog({
                 autoFocus
                 onClick={() => setDiscarding(false)}
               >
-                Seguir editando
+                Cancelar
               </button>
               <button
                 type="button"
-                className="button danger small"
+                className="button success small"
                 onClick={() => onCloseRef.current()}
               >
-                Descartar cambios
+                Aceptar
               </button>
             </div>
           </div>

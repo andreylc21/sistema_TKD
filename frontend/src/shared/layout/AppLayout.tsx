@@ -5,13 +5,13 @@ import { Link } from "../ui/Link";
 import { Notice } from "../ui/PageHeader";
 import { NavIcon } from "./NavIcon";
 export type Section =
-  "inicio" | "alumnos" | "clases" | "pagos" | "pedidos" | "examenes" | "reportes" | "configuracion";
+  "inicio" | "alumnos" | "grupos" | "pagos" | "pedidos" | "examenes" | "reportes" | "configuracion";
 /** Nivel de la ruta mostrada en el encabezado; el último es la pantalla actual. */
 export type Crumb = { label: string; to: string };
 const items: [Section, string, string][] = [
   ["inicio", "Inicio", paths.inicio],
   ["alumnos", "Alumnos", paths.alumnos],
-  ["clases", "Grupos", paths.clases()],
+  ["grupos", "Grupos", paths.grupos],
   ["pagos", "Pagos", paths.pagos()],
   ["pedidos", "Pedidos", paths.pedidos],
   ["examenes", "Exámenes", paths.examenes],
@@ -121,10 +121,8 @@ export function AppLayout({
                   <h1 ref={heading} tabIndex={-1}>
                     {title}
                   </h1>
+                  <span className="topbar-date">{date}</span>
                 </div>
-              </div>
-              <div className="topbar-meta">
-                <span className="topbar-date">{date}</span>
               </div>
             </div>
           </header>

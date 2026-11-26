@@ -1,15 +1,21 @@
+import { useState } from "react";
 import type { Bootstrap, Student } from "../../../shared/api/contracts";
-import { paidFor } from "../../../shared/lib/format";
-import { paths } from "../../../shared/lib/paths";
-import { Link } from "../../../shared/ui/Link";
-import { Money } from "../../../shared/ui/Money";
-import { Empty, PageHeader } from "../../../shared/ui/PageHeader";
+import { date } from "../../../shared/lib/format";
+import { Card } from "../../../shared/ui/Card";
+import { DetailLayout } from "../../../shared/ui/DetailLayout";
+import { EditButton } from "../../../shared/ui/EditButton";
+import { Empty } from "../../../shared/ui/PageHeader";
+import { RowList } from "../../../shared/ui/RowList";
+import { Status } from "../../../shared/ui/Status";
 import { AgeAlertRow } from "../../clases/components/AgeAlertRow";
-import { ageAlerts } from "../../clases/model/clases.model";
+import { activeGroups, ageAlerts } from "../../clases/model/clases.model";
+import { examKindLabel, resultLabel, studentExams } from "../../examenes/model/examenes.model";
 import { studentNotes } from "../model/alumnos.model";
+import { StudentForm } from "../StudentForm";
+import { AddNoteButton } from "./AddNoteButton";
 import { NoteList } from "./NoteList";
 
-const previewNotes = 3;
+const resultTone = { passed: "success", failed: "danger", pending: "neutral" } as const;
 
 export function StudentDetail({
   data,
@@ -22,119 +28,93 @@ export function StudentDetail({
   reload: () => Promise<void>;
   onChangeStatus: () => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const active = student.status === "Activo";
   const notes = studentNotes(data.notes, student.id);
   const alerts = ageAlerts(data.groups, data.students).filter(
     (alert) => alert.student.id === student.id,
   );
-  const balance = data.charges
-    .filter((charge) => charge.studentId === student.id)
-    .reduce((sum, charge) => sum + charge.total - paidFor(charge.id, data.payments), 0);
+  const exams = studentExams(data.exams, student.id);
 
   return (
     <>
-      <PageHeader
-        context={`${student.age} años · ${student.grade}`}
-        actions={
-          <>
-            <span className={`badge ${student.status === "Activo" ? "success" : "light"}`}>
-              {student.status}
-            </span>
-            <Link className="button secondary" to={paths.alumnoEditar(student.id)}>
-              Editar expediente
-            </Link>
-            <Link className="button secondary" to={paths.notaNueva(student.id)}>
-              Agregar nota
-            </Link>
-            <button
-              className={`button secondary ${student.status === "Activo" ? "danger" : ""}`}
-              onClick={onChangeStatus}
-            >
-              {student.status === "Activo" ? "Desactivar" : "Reactivar"}
-            </button>
-          </>
-        }
-      />
       {alerts.map((alert) => (
         <div key={alert.group.id} className="callout spacer-bottom">
           <strong>Ya no entra en {alert.group.name}</strong>
           <AgeAlertRow alert={alert} data={data} reload={reload} />
         </div>
       ))}
-      <div className="grid cols-2">
-        <section className="card">
-          <div className="card-header">
-            <h2>Contactos</h2>
-          </div>
-          <div className="card-body">
-            <dl className="stack">
-              <div>
-                <dt className="muted">Principal</dt>
-                <dd>{student.primary}</dd>
-              </div>
-              <div>
-                <dt className="muted">Emergencia</dt>
-                <dd>{student.emergency}</dd>
-              </div>
-              <div>
-                <dt className="muted">Correo</dt>
-                <dd>{student.email || "No registrado"}</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-        <section className="card">
-          <div className="card-header">
-            <h2>Restricciones relevantes</h2>
-          </div>
-          <div className="card-body">
-            <div className="callout">
-              <strong>Indicación vigente</strong>
-              <span>{student.restrictions || "No se capturó información de salud."}</span>
-            </div>
-          </div>
-        </section>
-      </div>
-      <div className="grid cols-2 spacer-top">
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <h2>Notas de seguimiento</h2>
-              {notes.length > previewNotes && (
-                <p>
-                  Las {previewNotes} más recientes de {notes.length}.
-                </p>
-              )}
-            </div>
-            {notes.length > 0 && (
-              <Link className="text-button" to={paths.notas(student.id)}>
-                Ver todas ({notes.length})
-              </Link>
-            )}
-          </div>
-          {notes.length ? (
-            <NoteList
-              data={data}
-              student={student}
-              notes={notes.slice(0, previewNotes)}
-              reload={reload}
-              preview
+      <DetailLayout
+        main={
+          <Card
+            title={student.name}
+            padded
+            actions={
+              !editing && (
+                <>
+                  <button
+                    className={`button small ${active ? "secondary danger" : "success"}`}
+                    onClick={onChangeStatus}
+                  >
+                    {active ? "Desactivar" : "Reactivar"}
+                  </button>
+                  <EditButton
+                    disabled={!active}
+                    title={active ? undefined : "Reactiva al alumno para poder editarlo."}
+                    onClick={() => setEditing(true)}
+                  />
+                </>
+              )
+            }
+          >
+            <StudentForm
+              key={editing ? "edit" : "view"}
+              readOnly={!editing}
+              grades={data.grades}
+              groups={activeGroups(data.groups)}
+              today={data.demoDate}
+              initial={student}
+              onCancel={() => setEditing(false)}
+              onSaved={async () => {
+                await reload();
+                setEditing(false);
+              }}
             />
-          ) : (
-            <Empty title="Sin notas" text="Todavía no hay notas de seguimiento." />
-          )}
-        </section>
-        <section className="card">
-          <div className="card-header">
-            <h2>Resumen financiero</h2>
-          </div>
-          <div className="card-body">
-            <strong className="metric-value">
-              <Money value={balance} />
-            </strong>
-            <p className="muted">Saldo pendiente en todos sus conceptos.</p>
-          </div>
-        </section>
-      </div>
+          </Card>
+        }
+        side={
+          <>
+            <Card
+              title="Notas de seguimiento"
+              actions={<AddNoteButton student={student} today={data.demoDate} reload={reload} />}
+            >
+              {notes.length ? (
+                <NoteList data={data} student={student} notes={notes} reload={reload} />
+              ) : (
+                <Empty title="Sin notas" text="Todavía no hay notas de seguimiento." />
+              )}
+            </Card>
+            <Card title="Exámenes">
+              <RowList
+                empty={{
+                  title: "Sin exámenes",
+                  text: "Todavía no se ha inscrito a ningún examen.",
+                }}
+                items={exams.map(({ exam, entry }) => ({
+                  id: entry.id,
+                  title: examKindLabel(exam.kind),
+                  subtitle: `${date(exam.date)} · ${
+                    entry.gradeTo ? `${entry.gradeFrom} → ${entry.gradeTo}` : entry.gradeFrom
+                  }`,
+                  value: (
+                    <Status tone={resultTone[entry.result]}>{resultLabel[entry.result]}</Status>
+                  ),
+                }))}
+              />
+            </Card>
+          </>
+        }
+      />
     </>
   );
 }

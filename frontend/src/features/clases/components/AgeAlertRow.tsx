@@ -3,7 +3,7 @@ import type { Bootstrap } from "../../../shared/api/contracts";
 import { Dialog } from "../../../shared/ui/Dialog";
 import { Notice } from "../../../shared/ui/PageHeader";
 import { keepStudent, moveStudent } from "../api/clases.api";
-import { ageLabel, type AgeAlert } from "../model/clases.model";
+import { activeGroups, ageLabel, type AgeAlert } from "../model/clases.model";
 
 /** Aviso de "ya no entra en el grupo" con sus dos salidas: mover al alumno o mantenerlo. */
 export function AgeAlertRow({
@@ -21,7 +21,7 @@ export function AgeAlertRow({
   const [moving, setMoving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const destinations = data.groups.filter((item) => item.id !== group.id);
+  const destinations = activeGroups(data.groups).filter((item) => item.id !== group.id);
 
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -94,14 +94,14 @@ export function AgeAlertRow({
             <div className="form-actions full-span">
               <button
                 type="button"
-                className="button secondary"
+                className="button danger"
                 data-dialog-close
                 onClick={() => setMoving(false)}
               >
                 Cancelar
               </button>
-              <button className="button" disabled={busy}>
-                Mover
+              <button className="button confirm" disabled={busy}>
+                Aceptar
               </button>
             </div>
           </form>

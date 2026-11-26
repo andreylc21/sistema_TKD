@@ -1,74 +1,91 @@
+import { useState } from "react";
 import type { Bootstrap } from "../../shared/api/contracts";
-import type { DueStatus, PaymentProgress } from "../../shared/lib/format";
 import { goBack, navigate } from "../../shared/lib/navigation";
 import { paths } from "../../shared/lib/paths";
 import { FormScreen } from "../../shared/ui/FormScreen";
 import { Link } from "../../shared/ui/Link";
+import { Money } from "../../shared/ui/Money";
 import { PageHeader } from "../../shared/ui/PageHeader";
-import { ChargesOverview, type ChargeFilters } from "./components/ChargesView";
+import { SummaryItem, SummaryStrip } from "../../shared/ui/SummaryStrip";
+import { Tabs } from "../../shared/ui/Tabs";
+import { monthLabel } from "../reportes/model/reportes.model";
+import { ChargesOverview, type ChargeFilters, type ChargeShow } from "./components/ChargesView";
 import { PaymentForm } from "./components/PaymentForm";
 import { PaymentHistory } from "./PaymentHistory";
-import { getPendingCharges } from "./model/pagos.model";
+import { getPendingCharges, paymentsSummary } from "./model/pagos.model";
 
-type DueFilter = DueStatus | "Por vencer" | "";
-
-const progressFilters: PaymentProgress[] = ["Sin pagos", "Pago parcial", "Pagado"];
-
-const dueFilters: DueFilter[] = [
-  "Por vencer",
-  "Pendiente",
-  "Próximo a pagar",
-  "Vence hoy",
-  "Vencido",
-];
+const tabs = ["Mensualidades", "Pedidos", "Exámenes", "Historial"] as const;
+type Tab = (typeof tabs)[number];
 
 export function PagosPage({
   data,
   reload,
-  due,
   q,
   progress,
   all,
 }: {
   data: Bootstrap;
   reload: () => Promise<void>;
-  due?: string;
   q?: string;
   progress?: string;
   all?: boolean;
 }) {
-  const filters: ChargeFilters = {
-    query: q ?? "",
-    progress: progressFilters.find((item) => item === progress) ?? "",
-    due: dueFilters.find((item) => item === due) ?? "",
-    all: Boolean(all),
-  };
+  const [tab, setTab] = useState<Tab>("Mensualidades");
+  const summary = paymentsSummary(data);
+  // Por compatibilidad con enlaces anteriores: `avance=Pagado` abre los pagados y `todos=1` todos.
+  const show: ChargeShow = all ? "all" : progress === "Pagado" ? "paid" : "unpaid";
+  const filters: ChargeFilters = { query: q ?? "", show };
   // Los filtros viven en la URL: se conservan al recargar, volver atrás o compartir el enlace.
   const changeFilters = (next: ChargeFilters) =>
     navigate(
-      paths.pagos(next.due || undefined, {
+      paths.pagos(undefined, {
         q: next.query || undefined,
-        progress: next.progress || undefined,
-        all: next.all,
+        progress: next.show === "paid" ? "Pagado" : undefined,
+        all: next.show === "all",
       }),
       { replace: true },
     );
 
   return (
     <>
-      <PageHeader help="Registra un pago desde el botón de arriba a la derecha: eliges al alumno y ves todo lo que debe. Los pedidos y exámenes generan sus cobros aquí." />
-      <ChargesOverview
-        data={data}
-        filters={filters}
-        onFilters={changeFilters}
-        paymentLink={(charge) => paths.pagoNuevo(charge.id)}
+      <PageHeader help="Aquí se registran los pagos. Las mensualidades se cobran aquí: cada una está Pagada o No pagada. Los pedidos y los exámenes se pagan completos al registrarse en sus pantallas, por eso aquí solo se listan. Las cifras de arriba son del mes de la fecha de hoy." />
+      <p className="report-heading period-label">{monthLabel(summary.month)}</p>
+      <SummaryStrip compact className="spacer-bottom">
+        <SummaryItem label="Mensualidades cobradas">
+          <Money value={summary.monthly} />
+        </SummaryItem>
+        <SummaryItem label="Mensualidades por cobrar">
+          <Money value={summary.toCollect} />
+        </SummaryItem>
+        <SummaryItem label="Pedidos cobrados">
+          <Money value={summary.orders} />
+        </SummaryItem>
+        <SummaryItem label="Exámenes cobrados">
+          <Money value={summary.exams} />
+        </SummaryItem>
+      </SummaryStrip>
+      <Tabs
+        label="Pagos"
+        items={tabs.map((name) => ({ id: name, label: name }))}
+        value={tab}
+        onChange={setTab}
         action={
           <Link className="button" to={paths.pagoNuevo()}>
             Registrar pago
           </Link>
         }
       />
-      <PaymentHistory data={data} reload={reload} />
+      {tab === "Historial" ? (
+        <PaymentHistory data={data} reload={reload} />
+      ) : (
+        <ChargesOverview
+          data={data}
+          category={tab}
+          filters={filters}
+          onFilters={changeFilters}
+          paymentLink={(charge) => paths.pagoNuevo(charge.id)}
+        />
+      )}
     </>
   );
 }

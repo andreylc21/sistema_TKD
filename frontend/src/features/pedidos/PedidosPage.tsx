@@ -7,12 +7,13 @@ import { PageHeader } from "../../shared/ui/PageHeader";
 import { OrderForm } from "./components/OrderForm";
 import { OrdersTable } from "./components/OrdersTable";
 
-export function PedidosPage({ data }: { data: Bootstrap }) {
+export function PedidosPage({ data, reload }: { data: Bootstrap; reload: () => Promise<void> }) {
   return (
     <>
-      <PageHeader help="Historial de lo que se ha pedido a cada alumno, si ya pagó y si ya se le entregó. El dinero se registra en Pagos." />
+      <PageHeader help="Lo que se ha pedido a cada alumno. Registrar un pedido registra su pago completo, y se entrega todo junto con el botón Entregar. El dinero queda en Pagos." />
       <OrdersTable
         data={data}
+        reload={reload}
         action={
           <Link className="button" to={paths.pedidoNuevo}>
             Registrar pedido

@@ -17,10 +17,11 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
     </>
   ),
-  clases: (
+  grupos: (
     <>
-      <rect x="3" y="4" width="18" height="16" rx="1" />
-      <path d="M8 2v4M16 2v4M3 9h18M8 13h3M8 17h3M14 13h2" />
+      <circle cx="8" cy="8.5" r="3" />
+      <circle cx="17" cy="9.5" r="2.5" />
+      <path d="M2 20c0-3.2 2.7-5.2 6-5.2s6 2 6 5.2M15.5 15c3 .2 5.5 1.6 6 5" />
     </>
   ),
   pagos: (

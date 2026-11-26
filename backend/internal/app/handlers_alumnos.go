@@ -31,7 +31,7 @@ func (s *Server) createStudent(c *gin.Context) {
 		return
 	}
 	var id string
-	e = tx.QueryRow(c, `INSERT INTO students(school_id,first_names,last_names,birth_date,grade_id,email,email_owner,primary_contact_name,primary_contact_relation,primary_contact_phone,emergency_contact_name,emergency_contact_relation,emergency_contact_phone,restrictions,health_consent_simulated,enrollment_date,billing_day) SELECT $1,$2,$3,$4,g.id,$6,nullif($7,''),$8,$9,$10,$11,$12,$13,$14,$15,$16,$17 FROM grades g WHERE g.id=$5 AND g.school_id=$1 RETURNING id::text`, c.GetString("school"), in.FirstNames, in.LastNames, in.BirthDate, in.GradeID, in.Email, in.EmailOwner, in.PrimaryName, in.PrimaryRelation, in.PrimaryPhone, in.EmergencyName, in.EmergencyRelation, in.EmergencyPhone, in.Restrictions, in.HealthConsent, in.EnrollmentDate, in.BillingDay).Scan(&id)
+	e = tx.QueryRow(c, `INSERT INTO students(school_id,first_names,last_names,birth_date,grade_id,email,email_owner,primary_contact_name,primary_contact_relation,primary_contact_phone,emergency_contact_name,emergency_contact_relation,emergency_contact_phone,restrictions,health_consent_simulated,enrollment_date,billing_day,phone) SELECT $1,$2,$3,$4,g.id,$6,nullif($7,''),$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,nullif($18,'') FROM grades g WHERE g.id=$5 AND g.school_id=$1 RETURNING id::text`, c.GetString("school"), in.FirstNames, in.LastNames, in.BirthDate, in.GradeID, in.Email, in.EmailOwner, in.PrimaryName, in.PrimaryRelation, in.PrimaryPhone, in.EmergencyName, in.EmergencyRelation, in.EmergencyPhone, in.Restrictions, in.HealthConsent, in.EnrollmentDate, in.BillingDay, in.Phone).Scan(&id)
 	if e == nil {
 		_, e = tx.Exec(c, `INSERT INTO student_activity_periods(school_id,student_id,active_from) VALUES($1,$2,$3)`, c.GetString("school"), id, in.EnrollmentDate)
 	}
@@ -62,7 +62,7 @@ func (s *Server) updateStudent(c *gin.Context) {
 		fail(c, 400, "Revisa los datos")
 		return
 	}
-	tag, e := s.DB.Exec(c, `UPDATE students SET first_names=$1,last_names=$2,birth_date=$3,grade_id=(SELECT id FROM grades WHERE id=$4 AND school_id=$5),email=$6,email_owner=nullif($7,''),primary_contact_name=$8,primary_contact_relation=$9,primary_contact_phone=$10,emergency_contact_name=$11,emergency_contact_relation=$12,emergency_contact_phone=$13,restrictions=$14,health_consent_simulated=$15,billing_day=$16,version=version+1,updated_at=now() WHERE id=$17 AND school_id=$5 AND version=$18`, in.FirstNames, in.LastNames, in.BirthDate, in.GradeID, c.GetString("school"), in.Email, in.EmailOwner, in.PrimaryName, in.PrimaryRelation, in.PrimaryPhone, in.EmergencyName, in.EmergencyRelation, in.EmergencyPhone, in.Restrictions, in.HealthConsent, in.BillingDay, c.Param("id"), in.Version)
+	tag, e := s.DB.Exec(c, `UPDATE students SET first_names=$1,last_names=$2,birth_date=$3,grade_id=(SELECT id FROM grades WHERE id=$4 AND school_id=$5),email=$6,email_owner=nullif($7,''),primary_contact_name=$8,primary_contact_relation=$9,primary_contact_phone=$10,emergency_contact_name=$11,emergency_contact_relation=$12,emergency_contact_phone=$13,restrictions=$14,health_consent_simulated=$15,billing_day=$16,phone=nullif($19,''),version=version+1,updated_at=now() WHERE id=$17 AND school_id=$5 AND version=$18`, in.FirstNames, in.LastNames, in.BirthDate, in.GradeID, c.GetString("school"), in.Email, in.EmailOwner, in.PrimaryName, in.PrimaryRelation, in.PrimaryPhone, in.EmergencyName, in.EmergencyRelation, in.EmergencyPhone, in.Restrictions, in.HealthConsent, in.BillingDay, c.Param("id"), in.Version, in.Phone)
 	if e != nil {
 		fail(c, 400, "No se pudo actualizar")
 		return
@@ -96,8 +96,15 @@ func (s *Server) studentStatus(c *gin.Context) {
 	}
 	if in.Status == "inactive" {
 		_, e = tx.Exec(c, `UPDATE student_activity_periods SET active_to=$1 WHERE student_id=$2 AND active_to IS NULL`, in.Date, c.Param("id"))
+		// Al darse de baja sale de sus grupos desde esa fecha; al volver se le asigna un horario nuevo.
+		if e == nil {
+			_, e = tx.Exec(c, `DELETE FROM group_assignments WHERE school_id=$1 AND student_id=$2 AND assigned_to IS NULL AND assigned_from>=$3`, c.GetString("school"), c.Param("id"), in.Date)
+		}
+		if e == nil {
+			_, e = tx.Exec(c, `UPDATE group_assignments SET assigned_to=$3::date-1 WHERE school_id=$1 AND student_id=$2 AND assigned_to IS NULL`, c.GetString("school"), c.Param("id"), in.Date)
+		}
 	} else {
-		_, e = tx.Exec(c, `INSERT INTO student_activity_periods(school_id,student_id,active_from) VALUES($1,$2,$3)`, c.GetString("school"), c.Param("id"), in.Date)
+		_, e = tx.Exec(c, `INSERT INTO student_activity_periods(school_id,student_id,active_from) VALUES($1,$2,$3) ON CONFLICT (student_id,active_from) DO UPDATE SET active_to=NULL`, c.GetString("school"), c.Param("id"), in.Date)
 	}
 	if e != nil {
 		fail(c, 400, "No se pudo actualizar el periodo")

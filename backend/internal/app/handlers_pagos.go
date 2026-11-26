@@ -433,3 +433,18 @@ func (s *Server) updateOrderItem(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
+
+// deliverOrder marca todo el pedido como recibido y entregado de una vez: los pedidos se pagan y se
+// entregan completos, sin seguimiento artículo por artículo.
+func (s *Server) deliverOrder(c *gin.Context) {
+	tag, e := s.DB.Exec(c, `UPDATE order_items SET received_quantity=quantity,delivered_quantity=quantity,version=version+1 WHERE order_id=$1 AND school_id=$2 AND NOT cancelled AND delivered_quantity<quantity`, c.Param("id"), c.GetString("school"))
+	if e != nil {
+		fail(c, http.StatusInternalServerError, "No se pudo entregar el pedido")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		fail(c, http.StatusConflict, "El pedido ya está entregado o no existe")
+		return
+	}
+	c.Status(http.StatusNoContent)
+}

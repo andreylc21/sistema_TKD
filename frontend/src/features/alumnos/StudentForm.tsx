@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Grade, Group, Student, StudentWrite } from "../../shared/api/contracts";
+import { date } from "../../shared/lib/format";
 import { Notice } from "../../shared/ui/PageHeader";
 import { assignStudent } from "../clases/api/clases.api";
 import { createStudent, updateStudent } from "./api/alumnos.api";
@@ -91,6 +92,7 @@ export function StudentForm({
   initial,
   onSaved,
   onCancel,
+  readOnly = false,
 }: {
   grades: Grade[];
   groups: Group[];
@@ -98,18 +100,22 @@ export function StudentForm({
   initial?: Student;
   onSaved: () => Promise<void>;
   onCancel: () => void;
+  /** Muestra el expediente completo sin poder editarlo; sin pie de acciones ni leyenda de obligatorios. */
+  readOnly?: boolean;
 }) {
+  // Los alumnos antiguos con emergencia igual al principal se muestran sin contacto de emergencia.
+  const emergency =
+    initial && initial.emergencyPhone && initial.emergencyPhone !== initial.primaryPhone
+      ? {
+          name: initial.emergencyName,
+          relation: initial.emergencyRelation,
+          phone: initial.emergencyPhone,
+        }
+      : undefined;
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
   const creationKey = useRef(crypto.randomUUID());
-  const [reuse, setReuse] = useState(
-    Boolean(
-      initial &&
-      initial.primaryName === initial.emergencyName &&
-      initial.primaryPhone === initial.emergencyPhone,
-    ),
-  );
   function validate(v: Record<string, FormDataEntryValue>) {
     const found: Errors = {};
     const text = (name: string) => String(v[name] ?? "").trim();
@@ -122,6 +128,10 @@ export function StudentForm({
     need("gradeId", "Selecciona el grado actual.");
     if (!initial) need("enrollmentDate", "Indica la fecha de inscripción.");
     if (text("email") && !emailValid(text("email"))) found.email = "Escribe un correo válido.";
+    if (text("phone") && !phoneValid(text("phone")))
+      found.phone = "El teléfono debe tener 10 dígitos.";
+    if (!("healthConsent" in v))
+      found.healthConsent = "Debes autorizar el tratamiento de los datos.";
     const day = Number(v.billingDay);
     if (!Number.isInteger(day) || day < 1 || day > 31)
       found.billingDay = "Indica un día entre 1 y 31.";
@@ -130,12 +140,15 @@ export function StudentForm({
     if (!text("primaryPhone")) found.primaryPhone = "Escribe un teléfono de 10 dígitos.";
     else if (!phoneValid(text("primaryPhone")))
       found.primaryPhone = "El teléfono debe tener 10 dígitos.";
-    if (!reuse) {
+    const emergency = ["emergencyName", "emergencyRelation", "emergencyPhone"];
+    if (emergency.some((name) => text(name))) {
       need("emergencyName", "Escribe el nombre del contacto de emergencia.");
       need("emergencyRelation", "Selecciona la relación con el alumno.");
       if (!text("emergencyPhone")) found.emergencyPhone = "Escribe un teléfono de 10 dígitos.";
       else if (!phoneValid(text("emergencyPhone")))
         found.emergencyPhone = "El teléfono debe tener 10 dígitos.";
+      else if (phoneDigits(text("emergencyPhone")) === phoneDigits(text("primaryPhone")))
+        found.emergencyPhone = "Debe ser distinto al teléfono del contacto principal.";
     }
     return found;
   }
@@ -177,11 +190,12 @@ export function StudentForm({
       primaryName: String(v.primaryName),
       primaryRelation: String(v.primaryRelation),
       primaryPhone: phoneDigits(String(v.primaryPhone)),
-      emergencyName: String(reuse ? v.primaryName : v.emergencyName),
-      emergencyRelation: String(reuse ? v.primaryRelation : v.emergencyRelation),
-      emergencyPhone: phoneDigits(String(reuse ? v.primaryPhone : v.emergencyPhone)),
+      emergencyName: String(v.emergencyName || ""),
+      emergencyRelation: String(v.emergencyRelation || ""),
+      emergencyPhone: phoneDigits(String(v.emergencyPhone || "")),
       restrictions: String(v.restrictions || ""),
       healthConsent,
+      phone: phoneDigits(String(v.phone || "")),
       enrollmentDate: String(initial?.enrollmentDate || v.enrollmentDate),
       billingDay: Number(v.billingDay),
       version: initial?.version,
@@ -207,171 +221,229 @@ export function StudentForm({
     }
   }
   return (
-    <form className="form-grid" onSubmit={submit} onInput={clearError} noValidate>
-      {error && (
-        <div className="full-span">
-          <Notice kind="error">{error}</Notice>
-        </div>
-      )}
-      <p className="required-legend full-span">
-        <b aria-hidden="true">*</b> Campo obligatorio
-      </p>
-      <Field id="firstNames" label="Nombre(s)" required error={errors.firstNames}>
-        {(a) => <input {...a} name="firstNames" defaultValue={initial?.firstNames} />}
-      </Field>
-      <Field id="lastNames" label="Apellido(s)" required error={errors.lastNames}>
-        {(a) => <input {...a} name="lastNames" defaultValue={initial?.lastNames} />}
-      </Field>
-      <Field id="birthDate" label="Fecha de nacimiento" required error={errors.birthDate}>
-        {(a) => (
-          <input
-            {...a}
-            name="birthDate"
-            type="date"
-            max={today}
-            defaultValue={initial?.birthDate}
-          />
+    <form
+      className={`form-grid${readOnly ? " readonly" : ""}`}
+      onSubmit={submit}
+      onInput={clearError}
+      noValidate
+    >
+      <fieldset className="form-body" disabled={readOnly}>
+        {error && (
+          <div className="full-span">
+            <Notice kind="error">{error}</Notice>
+          </div>
         )}
-      </Field>
-      <Field id="gradeId" label="Grado actual" required error={errors.gradeId}>
-        {(a) => (
-          <select {...a} name="gradeId" defaultValue={initial?.gradeId}>
-            {grades.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+        {!readOnly && (
+          <p className="required-legend full-span">
+            <b aria-hidden="true">*</b> Campo obligatorio
+          </p>
         )}
-      </Field>
-      <Field
-        id="email"
-        label={
-          <>
-            Correo <span>(opcional)</span>
-          </>
-        }
-        hint="Ej. nombre@correo.com"
-        error={errors.email}
-      >
-        {(a) => <input {...a} name="email" type="email" defaultValue={initial?.email} />}
-      </Field>
-      <Field
-        id="enrollmentDate"
-        label="Fecha de inscripción"
-        required
-        error={errors.enrollmentDate}
-      >
-        {(a) => (
-          <input
-            {...a}
-            name="enrollmentDate"
-            type="date"
-            defaultValue={initial?.enrollmentDate || today}
-            disabled={Boolean(initial)}
-          />
-        )}
-      </Field>
-      <Field
-        id="billingDay"
-        label="Día mensual de pago"
-        required
-        hint="Si el mes es más corto, se cobra el último día del mes."
-        error={errors.billingDay}
-      >
-        {(a) => (
-          <input
-            {...a}
-            name="billingDay"
-            type="number"
-            min="1"
-            max="31"
-            defaultValue={initial?.billingDay || 1}
-          />
-        )}
-      </Field>
-      <div />
-      {!initial && (
-        <fieldset className="full-span">
-          <legend>
-            Horario de clases <span>(opcional)</span>
-          </legend>
-          {groups.length ? (
-            <div className="check-row">
-              {groups.map((group) => (
-                <label key={group.id} className="check">
-                  <input type="checkbox" name="groupIds" value={group.id} />
-                  {group.name} · {group.days.join(", ")} · {group.time}
-                </label>
-              ))}
-            </div>
-          ) : (
-            <p className="muted">
-              Aún no hay horarios. Créalos en Clases y después asígnalos aquí o desde el grupo.
-            </p>
-          )}
-        </fieldset>
-      )}
-      <h3 className="full-span form-section">Contacto principal o responsable</h3>
-      <Field id="primaryName" label="Nombre" required error={errors.primaryName}>
-        {(a) => <input {...a} name="primaryName" defaultValue={initial?.primaryName} />}
-      </Field>
-      <Field id="primaryRelation" label="Relación" required error={errors.primaryRelation}>
-        {(a) => (
-          <RelationSelect
-            props={a}
-            name="primaryRelation"
-            defaultValue={initial?.primaryRelation}
-          />
-        )}
-      </Field>
-      <Field
-        id="primaryPhone"
-        label="Teléfono"
-        required
-        hint="10 dígitos, sin espacios ni guiones."
-        error={errors.primaryPhone}
-      >
-        {(a) => (
-          <input
-            {...a}
-            name="primaryPhone"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel-national"
-            placeholder="10 dígitos"
-            defaultValue={initial?.primaryPhone}
-          />
-        )}
-      </Field>
-      <label className="check">
-        <input type="checkbox" checked={reuse} onChange={(e) => setReuse(e.target.checked)} />{" "}
-        Reutilizar como contacto de emergencia
-      </label>
-      {!reuse && (
-        <>
-          <Field
-            id="emergencyName"
-            label="Contacto de emergencia"
-            required
-            error={errors.emergencyName}
-          >
-            {(a) => <input {...a} name="emergencyName" defaultValue={initial?.emergencyName} />}
+        <div className="form-col">
+          <Field id="firstNames" label="Nombre(s)" required error={errors.firstNames}>
+            {(a) => (
+              <input
+                {...a}
+                name="firstNames"
+                defaultValue={initial?.firstNames}
+                placeholder="Ej. María Fernanda"
+              />
+            )}
           </Field>
-          <Field id="emergencyRelation" label="Relación" required error={errors.emergencyRelation}>
+          <Field id="lastNames" label="Apellido(s)" required error={errors.lastNames}>
+            {(a) => (
+              <input
+                {...a}
+                name="lastNames"
+                defaultValue={initial?.lastNames}
+                placeholder="Ej. López Camal"
+              />
+            )}
+          </Field>
+          <Field id="birthDate" label="Fecha de nacimiento" required error={errors.birthDate}>
+            {(a) => (
+              <input
+                {...a}
+                name="birthDate"
+                type={readOnly && initial ? "text" : "date"}
+                max={today}
+                defaultValue={readOnly && initial ? date(initial.birthDate) : initial?.birthDate}
+              />
+            )}
+          </Field>
+          <Field id="gradeId" label="Grado actual" required error={errors.gradeId}>
+            {(a) => (
+              <select {...a} name="gradeId" defaultValue={initial?.gradeId}>
+                {grades.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <Field
+            id="email"
+            label={
+              <>
+                Correo <span>(opcional)</span>
+              </>
+            }
+            error={errors.email}
+          >
+            {(a) => (
+              <input
+                {...a}
+                name="email"
+                type="email"
+                defaultValue={initial?.email}
+                placeholder="Ej. nombre@correo.com"
+              />
+            )}
+          </Field>
+          <Field
+            id="phone"
+            label={
+              <>
+                Teléfono del alumno <span>(opcional)</span>
+              </>
+            }
+            hint="10 dígitos, sin espacios ni guiones."
+            error={errors.phone}
+          >
+            {(a) => (
+              <input
+                {...a}
+                name="phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                placeholder="10 dígitos"
+                defaultValue={initial?.phone}
+              />
+            )}
+          </Field>
+          <Field
+            id="enrollmentDate"
+            label="Fecha de inscripción"
+            required
+            error={errors.enrollmentDate}
+          >
+            {(a) => (
+              <input
+                {...a}
+                name="enrollmentDate"
+                type={initial ? "text" : "date"}
+                defaultValue={initial ? date(initial.enrollmentDate) : today}
+                disabled={Boolean(initial)}
+              />
+            )}
+          </Field>
+          <Field
+            id="billingDay"
+            label="Día mensual de pago"
+            required
+            hint="Si el mes es más corto, se cobra el último día del mes."
+            error={errors.billingDay}
+          >
+            {(a) => (
+              <input
+                {...a}
+                name="billingDay"
+                type="number"
+                min="1"
+                max="31"
+                defaultValue={initial?.billingDay || 1}
+              />
+            )}
+          </Field>
+          {!initial && (
+            <fieldset className="full-span">
+              <legend>
+                Horario de clases <span>(opcional)</span>
+              </legend>
+              {groups.length ? (
+                <div className="check-row">
+                  {groups.map((group) => (
+                    <label key={group.id} className="check">
+                      <input type="checkbox" name="groupIds" value={group.id} />
+                      {group.name} · {group.days.join(", ")} · {group.time}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">
+                  Aún no hay horarios. Créalos en Clases y después asígnalos aquí o desde el grupo.
+                </p>
+              )}
+            </fieldset>
+          )}
+        </div>
+        <div className="form-col">
+          <h3 className="full-span form-section">Contacto principal</h3>
+          <Field id="primaryName" label="Nombre" required error={errors.primaryName}>
+            {(a) => (
+              <input
+                {...a}
+                name="primaryName"
+                defaultValue={initial?.primaryName}
+                placeholder="Ej. Patricia Camal"
+              />
+            )}
+          </Field>
+          <Field id="primaryRelation" label="Relación" required error={errors.primaryRelation}>
+            {(a) => (
+              <RelationSelect
+                props={a}
+                name="primaryRelation"
+                defaultValue={initial?.primaryRelation}
+              />
+            )}
+          </Field>
+          <Field
+            id="primaryPhone"
+            label="Teléfono"
+            required
+            hint="10 dígitos, sin espacios ni guiones."
+            error={errors.primaryPhone}
+          >
+            {(a) => (
+              <input
+                {...a}
+                name="primaryPhone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                placeholder="10 dígitos"
+                defaultValue={initial?.primaryPhone}
+              />
+            )}
+          </Field>
+          <h3 className="full-span form-section">
+            Contacto de emergencia <span>(opcional)</span>
+          </h3>
+          <Field id="emergencyName" label="Nombre" error={errors.emergencyName}>
+            {(a) => (
+              <input
+                {...a}
+                name="emergencyName"
+                defaultValue={emergency?.name}
+                placeholder="Ej. Luis Pérez"
+              />
+            )}
+          </Field>
+          <Field id="emergencyRelation" label="Relación" error={errors.emergencyRelation}>
             {(a) => (
               <RelationSelect
                 props={a}
                 name="emergencyRelation"
-                defaultValue={initial?.emergencyRelation}
+                defaultValue={emergency?.relation}
               />
             )}
           </Field>
           <Field
             id="emergencyPhone"
             label="Teléfono"
-            required
-            hint="10 dígitos, sin espacios ni guiones."
+            hint="10 dígitos, distinto al del contacto principal."
             error={errors.emergencyPhone}
           >
             {(a) => (
@@ -382,36 +454,51 @@ export function StudentForm({
                 inputMode="numeric"
                 autoComplete="tel-national"
                 placeholder="10 dígitos"
-                defaultValue={initial?.emergencyPhone}
+                defaultValue={emergency?.phone}
               />
             )}
           </Field>
-        </>
+          <h3 className="full-span form-section">
+            Salud <span>(opcional)</span>
+          </h3>
+          <div className="field full-span">
+            <label htmlFor="restrictions">Alergias, condiciones o restricciones</label>
+            <textarea
+              id="restrictions"
+              name="restrictions"
+              defaultValue={initial?.restrictions}
+              placeholder="Ej. Alergia a la penicilina; asma leve"
+            />
+          </div>
+          <div className="full-span">
+            <label className="check">
+              <input
+                name="healthConsent"
+                type="checkbox"
+                defaultChecked={initial?.healthConsent}
+                aria-invalid={Boolean(errors.healthConsent)}
+              />{" "}
+              Autorizo el tratamiento de los datos personales y de salud del alumno{" "}
+              <b aria-hidden="true">*</b>
+            </label>
+            {errors.healthConsent && (
+              <span className="field-error" role="alert">
+                {errors.healthConsent}
+              </span>
+            )}
+          </div>
+        </div>
+      </fieldset>
+      {!readOnly && (
+        <div className="form-actions full-span">
+          <button type="button" className="button danger" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button className="button confirm" disabled={busy}>
+            {busy ? "Guardando…" : "Aceptar"}
+          </button>
+        </div>
       )}
-      <h3 className="full-span form-section">
-        Salud <span>(opcional)</span>
-      </h3>
-      <div className="field full-span">
-        <label htmlFor="restrictions">Alergias, condiciones o restricciones</label>
-        <textarea
-          id="restrictions"
-          name="restrictions"
-          defaultValue={initial?.restrictions}
-          placeholder="Ej. Alergia a la penicilina; asma leve"
-        />
-      </div>
-      <label className="check full-span">
-        <input name="healthConsent" type="checkbox" defaultChecked={initial?.healthConsent} />{" "}
-        Autorización para tratar esta información de salud
-      </label>
-      <div className="form-actions full-span">
-        <button type="button" className="button secondary" onClick={onCancel}>
-          Cancelar
-        </button>
-        <button className="button" disabled={busy}>
-          {busy ? "Guardando…" : initial ? "Guardar cambios" : "Guardar alumno"}
-        </button>
-      </div>
     </form>
   );
 }

@@ -86,7 +86,7 @@ func (s *Server) createExam(c *gin.Context) {
 		fail(c, 400, "Fecha o costo inválidos")
 		return
 	}
-	// Plazo de pago por defecto: un mes antes del examen final y dos semanas antes de un parcial.
+	// Plazo de pago por defecto: una semana antes del examen.
 	deadline := date.AddDate(0, 0, -examenes.DefaultLeadDays(in.Kind))
 	if in.Deadline != "" {
 		if deadline, e = time.Parse("2006-01-02", in.Deadline); e != nil || deadline.After(date) {
@@ -124,13 +124,84 @@ func (s *Server) createExam(c *gin.Context) {
 	c.JSON(201, gin.H{"id": id})
 }
 
+// updateExam reprograma un examen: fecha, costo y fecha límite de pago. Sólo mientras nadie
+// tenga resultado; los cobros de los inscritos se ajustan a los nuevos datos.
+func (s *Server) updateExam(c *gin.Context) {
+	var in struct {
+		Date     string `json:"date"`
+		Fee      string `json:"fee"`
+		Deadline string `json:"paymentDeadline"`
+	}
+	if c.ShouldBindJSON(&in) != nil {
+		fail(c, 400, "Indica la fecha, el costo y la fecha límite de pago")
+		return
+	}
+	date, e := time.Parse("2006-01-02", in.Date)
+	fee, fe := pagos.ParseMoney(in.Fee)
+	deadline, de := time.Parse("2006-01-02", in.Deadline)
+	if e != nil || fe != nil || de != nil || fee < 0 {
+		fail(c, 400, "Fecha o costo inválidos")
+		return
+	}
+	if deadline.After(date) {
+		fail(c, 400, "La fecha límite de pago no puede ser posterior al examen")
+		return
+	}
+	school := c.GetString("school")
+	tx, e := s.DB.Begin(c)
+	if e != nil {
+		fail(c, 500, "No se pudo guardar el examen")
+		return
+	}
+	defer tx.Rollback(c)
+	var kind string
+	var oldFee int64
+	if tx.QueryRow(c, `SELECT kind,fee_cents FROM exams WHERE id=$1 AND school_id=$2 FOR UPDATE`, c.Param("id"), school).Scan(&kind, &oldFee) != nil {
+		fail(c, 404, "Examen no encontrado")
+		return
+	}
+	var resolved, paid bool
+	_ = tx.QueryRow(c, `SELECT EXISTS(SELECT 1 FROM exam_entries WHERE exam_id=$1 AND result<>'pending'),
+  EXISTS(SELECT 1 FROM exam_entries en JOIN payments p ON p.charge_id=en.charge_id AND p.status='valid' WHERE en.exam_id=$1)`, c.Param("id")).Scan(&resolved, &paid)
+	if resolved {
+		fail(c, 409, "El examen ya tiene resultados registrados y no se puede editar")
+		return
+	}
+	if fee != oldFee && paid {
+		fail(c, 409, "Ya hay pagos de este examen; el costo no se puede cambiar. Anula los pagos primero en Pagos")
+		return
+	}
+	if _, e = tx.Exec(c, `UPDATE exams SET exam_date=$1,fee_cents=$2,payment_deadline=$3 WHERE id=$4`, date, fee, deadline, c.Param("id")); e == nil {
+		label := "Examen parcial"
+		if kind == "black" {
+			label = "Examen de cinta negra"
+		}
+		_, e = tx.Exec(c, `UPDATE charges SET due_date=$1,period=to_char($2::date,'YYYY-MM'),description=$3,
+  original_cents=CASE WHEN $4::bigint<>$5::bigint THEN $4 ELSE original_cents END,
+  total_cents=CASE WHEN $4::bigint<>$5::bigint THEN greatest($4-discount_cents,0) ELSE total_cents END
+WHERE status='active' AND id IN (SELECT charge_id FROM exam_entries WHERE exam_id=$6 AND charge_id IS NOT NULL)`,
+			deadline, date, fmt.Sprintf("%s · %s", label, in.Date), fee, oldFee, c.Param("id"))
+	}
+	if e != nil || tx.Commit(c) != nil {
+		fail(c, 500, "No se pudo guardar el examen")
+		return
+	}
+	c.Status(204)
+}
+
 func (s *Server) enrollExam(c *gin.Context) {
 	var in struct {
 		StudentID string `json:"studentId"`
 		Reason    string `json:"reason"`
+		Method    string `json:"method"`
 	}
 	if c.ShouldBindJSON(&in) != nil || in.StudentID == "" {
 		fail(c, 400, "Selecciona un alumno")
+		return
+	}
+	method, knownMethod := map[string]string{"": "cash", "Efectivo": "cash", "Transferencia": "transfer", "Tarjeta": "card", "Otro": "other"}[in.Method]
+	if !knownMethod {
+		fail(c, 400, "Forma de pago inválida")
 		return
 	}
 	school := c.GetString("school")
@@ -170,14 +241,13 @@ func (s *Server) enrollExam(c *gin.Context) {
 			return
 		}
 	}
-	// Pasado el plazo de pago, inscribir al alumno es una excepción que debe justificarse.
-	late := store.DemoNow(s.Config).Format("2006-01-02") > deadline.Format("2006-01-02")
-	if late && reason == "" {
-		fail(c, 400, "El plazo de pago de este examen ya venció. Escribe el motivo para inscribirlo de todos modos")
+	today := store.DemoNow(s.Config).Format("2006-01-02")
+	if today >= examDate {
+		fail(c, 409, "La inscripción cerró: el examen es hoy o ya pasó")
 		return
 	}
 	var entryID string
-	e = tx.QueryRow(c, `INSERT INTO exam_entries(school_id,exam_id,student_id,grade_from_id,override_reason,payment_exception) VALUES($1,$2,$3,$4,nullif($5,''),CASE WHEN $6 THEN nullif($5,'') END) RETURNING id::text`, school, c.Param("id"), in.StudentID, gradeID, reason, late).Scan(&entryID)
+	e = tx.QueryRow(c, `INSERT INTO exam_entries(school_id,exam_id,student_id,grade_from_id,override_reason,payment_exception) VALUES($1,$2,$3,$4,nullif($5,''),NULL) RETURNING id::text`, school, c.Param("id"), in.StudentID, gradeID, reason).Scan(&entryID)
 	if e != nil {
 		fail(c, 409, "El alumno ya está inscrito en este examen")
 		return
@@ -190,6 +260,14 @@ func (s *Server) enrollExam(c *gin.Context) {
 	e = tx.QueryRow(c, `INSERT INTO charges(school_id,student_id,kind,reference_id,reference_item_id,period,description,original_cents,total_cents,due_date,idempotency_key) VALUES($1,$2,'exam',$3,$4,to_char($5::date,'YYYY-MM'),$6,$7,$7,$9,$8) RETURNING id::text`, school, in.StudentID, c.Param("id"), entryID, examDate, fmt.Sprintf("%s · %s", label, examDate), fee, "exam:"+entryID, deadline).Scan(&chargeID)
 	if e == nil {
 		_, e = tx.Exec(c, `UPDATE exam_entries SET charge_id=$1 WHERE id=$2`, chargeID, entryID)
+	}
+	// Inscribirse es pagar: el cobro se liquida en el mismo paso, sin devoluciones.
+	if e == nil && fee > 0 {
+		var paymentID string
+		e = tx.QueryRow(c, `INSERT INTO payments(school_id,student_id,charge_id,amount_cents,received_on,method,observation,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,'Inscripción a examen',$7) RETURNING id::text`, school, in.StudentID, chargeID, fee, today, method, "exam-payment:"+entryID).Scan(&paymentID)
+		if e == nil {
+			_, e = tx.Exec(c, `INSERT INTO payment_history(school_id,payment_id,action,new_data) VALUES($1,$2,'created',jsonb_build_object('amountCents',$3::bigint))`, school, paymentID, fee)
+		}
 	}
 	if e != nil {
 		fail(c, 500, "No se pudo generar el cobro")
@@ -254,10 +332,10 @@ func (s *Server) setExamResult(c *gin.Context) {
 		return
 	}
 	defer tx.Rollback(c)
-	var kind, result, studentID, gradeID string
+	var kind, result, studentID, gradeID, examDay string
 	var exception *string
 	var chargeID *string
-	if tx.QueryRow(c, `SELECT e.kind,en.result,en.student_id::text,en.grade_from_id::text,en.payment_exception,en.charge_id::text FROM exam_entries en JOIN exams e ON e.id=en.exam_id WHERE en.id=$1 AND en.exam_id=$2 AND en.school_id=$3 FOR UPDATE OF en`, c.Param("entry"), c.Param("id"), school).Scan(&kind, &result, &studentID, &gradeID, &exception, &chargeID) != nil {
+	if tx.QueryRow(c, `SELECT e.kind,en.result,en.student_id::text,en.grade_from_id::text,en.payment_exception,en.charge_id::text,e.exam_date::text FROM exam_entries en JOIN exams e ON e.id=en.exam_id WHERE en.id=$1 AND en.exam_id=$2 AND en.school_id=$3 FOR UPDATE OF en`, c.Param("entry"), c.Param("id"), school).Scan(&kind, &result, &studentID, &gradeID, &exception, &chargeID, &examDay) != nil {
 		fail(c, 404, "Inscripción no encontrada")
 		return
 	}
@@ -265,13 +343,9 @@ func (s *Server) setExamResult(c *gin.Context) {
 		fail(c, 409, "El resultado ya fue registrado")
 		return
 	}
-	if exception == nil && chargeID != nil {
-		var owed int64
-		_ = tx.QueryRow(c, `SELECT ch.total_cents-coalesce((SELECT sum(p.amount_cents) FROM payments p WHERE p.charge_id=ch.id AND p.status='valid'),0) FROM charges ch WHERE ch.id=$1`, *chargeID).Scan(&owed)
-		if owed > 0 {
-			fail(c, 409, "El alumno no ha pagado el examen. Registra el pago en Pagos o autoriza una excepción")
-			return
-		}
+	if today.Format("2006-01-02") < examDay {
+		fail(c, 409, "El resultado se registra a partir de la fecha del examen")
+		return
 	}
 	if in.Result == "failed" {
 		if _, e = tx.Exec(c, `UPDATE exam_entries SET result='failed' WHERE id=$1`, c.Param("entry")); e != nil || tx.Commit(c) != nil {

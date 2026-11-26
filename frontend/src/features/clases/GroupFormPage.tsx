@@ -1,26 +1,26 @@
 import { useRef, useState } from "react";
-import type { Group, GroupWrite } from "../../shared/api/contracts";
+import type { GroupWrite } from "../../shared/api/contracts";
 import { goBack } from "../../shared/lib/navigation";
 import { paths } from "../../shared/lib/paths";
 import { FormScreen } from "../../shared/ui/FormScreen";
 import { Notice } from "../../shared/ui/PageHeader";
-import { createGroup, updateGroup } from "./api/clases.api";
+import { createGroup } from "./api/clases.api";
 import { GroupForm } from "./components/GroupForm";
 
-export function GroupFormPage({ group, reload }: { group?: Group; reload: () => Promise<void> }) {
+/** Alta de un grupo. Para modificar uno existente se usa su ficha. */
+export function GroupFormPage({ reload }: { reload: () => Promise<void> }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const creationKey = useRef(crypto.randomUUID());
-  const parent = paths.clases("groups");
+  const parent = paths.grupos;
 
   async function save(body: GroupWrite) {
     setBusy(true);
     setError("");
     try {
-      if (group) await updateGroup(group.id, body);
-      else await createGroup(body, creationKey.current);
+      await createGroup(body, creationKey.current);
       await reload();
-      goBack(parent, { notice: group ? "Grupo actualizado." : "Grupo creado.", force: true });
+      goBack(parent, { notice: "Grupo creado.", force: true });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo guardar el grupo.");
     } finally {
@@ -31,7 +31,7 @@ export function GroupFormPage({ group, reload }: { group?: Group; reload: () => 
   return (
     <FormScreen title="Datos del grupo">
       {error && <Notice kind="error">{error}</Notice>}
-      <GroupForm initial={group} busy={busy} onSubmit={save} onCancel={() => goBack(parent)} />
+      <GroupForm busy={busy} onSubmit={save} onCancel={() => goBack(parent)} />
     </FormScreen>
   );
 }

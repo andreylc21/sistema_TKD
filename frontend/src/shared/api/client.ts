@@ -1,3 +1,4 @@
+import { conceptLabel } from "../lib/format";
 import type { Bootstrap, LoginRequest, SessionResponse } from "./contracts";
 let csrfToken = "";
 export class ApiError extends Error {
@@ -44,7 +45,10 @@ export async function request<TResponse, TBody = never>(
 export async function bootstrap() {
   const data = await request<Bootstrap>("/api/bootstrap");
   csrfToken = data.csrfToken;
-  return data;
+  return {
+    ...data,
+    charges: data.charges.map((c) => ({ ...c, concept: conceptLabel(c.concept) })),
+  };
 }
 export async function login(email: string, password: string) {
   const body: LoginRequest = { email, password };

@@ -58,3 +58,8 @@ export function updateOrderProgressBulk(
     idempotencyKey,
   });
 }
+
+/** Marca todo el pedido como entregado de una vez. */
+export function deliverOrder(orderId: string) {
+  return request<void>(`/api/orders/${orderId}/deliver`, { method: "POST" });
+}

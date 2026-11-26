@@ -1,6 +1,4 @@
 // URL de cada pantalla. La jerarquía de la URL coincide con las migas de pan del encabezado.
-export type ClassesView = "day" | "groups";
-
 const id = (value: string) => encodeURIComponent(value);
 const query = (params: Record<string, string | undefined>) => {
   const search = new URLSearchParams(
@@ -15,26 +13,19 @@ export const paths = {
   alumnoNuevo: "/alumnos/nuevo",
   alumno: (studentId: string) => `/alumnos/${id(studentId)}`,
   alumnoEditar: (studentId: string) => `/alumnos/${id(studentId)}/editar`,
-  notas: (studentId: string) => `/alumnos/${id(studentId)}/notas`,
-  notaNueva: (studentId: string) => `/alumnos/${id(studentId)}/notas/nueva`,
-  notaEditar: (studentId: string, noteId: string) =>
-    `/alumnos/${id(studentId)}/notas/${id(noteId)}/editar`,
-  clases: (view: ClassesView = "day", date?: string) =>
-    view === "groups" ? "/clases/grupos" : `/clases${query({ fecha: date })}`,
-  grupoNuevo: "/clases/grupos/nuevo",
-  grupoEditar: (groupId: string) => `/clases/grupos/${id(groupId)}/editar`,
-  sesion: (sessionId: string) => `/clases/sesiones/${id(sessionId)}`,
-  sesionNota: (sessionId: string, studentId: string) =>
-    `/clases/sesiones/${id(sessionId)}/alumnos/${id(studentId)}/nota`,
+  grupos: "/grupos",
+  grupoNuevo: "/grupos/nuevo",
+  grupo: (groupId: string) => `/grupos/${id(groupId)}`,
+  sesion: (groupId: string, sessionId: string) => `/grupos/${id(groupId)}/clases/${id(sessionId)}`,
   pagos: (due?: string, filters: { q?: string; progress?: string; all?: boolean } = {}) =>
     `/pagos${query({ vencimiento: due, q: filters.q, avance: filters.progress, todos: filters.all ? "1" : undefined })}`,
   pagoNuevo: (chargeId?: string, studentId?: string) =>
     `/pagos/registrar-pago${query({ cargo: chargeId, alumno: studentId })}`,
   pedidos: "/pedidos",
   pedidoNuevo: "/pedidos/nuevo",
-  pedido: (orderId: string) => `/pedidos/${id(orderId)}`,
   examenes: "/examenes",
   examenNuevo: "/examenes/nuevo",
+  examenEditar: (examId: string) => `/examenes/${id(examId)}/editar`,
   reportes: "/reportes",
   configuracion: "/configuracion",
 };

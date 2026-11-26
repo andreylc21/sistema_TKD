@@ -4,7 +4,6 @@ import { date, money } from "../../../shared/lib/format";
 import { Empty, Notice } from "../../../shared/ui/PageHeader";
 import { createPayment } from "../api/pagos.api";
 import { chargePresentation } from "../model/pagos.model";
-import { PaymentSummary } from "./PaymentSummary";
 
 export function PaymentForm({
   data,
@@ -137,9 +136,9 @@ export function PaymentForm({
           required
         >
           <option value="">Selecciona un alumno</option>
-          {students.map(({ student, balance }) => (
+          {students.map(({ student }) => (
             <option key={student.id} value={student.id}>
-              {student.name} · saldo {money(balance)}
+              {student.name}
             </option>
           ))}
         </select>
@@ -193,14 +192,6 @@ export function PaymentForm({
           </ul>
         </fieldset>
       )}
-      {selected && state && (
-        <PaymentSummary
-          charge={selected}
-          received={state.received}
-          balance={state.balance}
-          amount={numericAmount}
-        />
-      )}
       <div className="field">
         <label htmlFor="amount">Importe recibido</label>
         <input
@@ -215,21 +206,14 @@ export function PaymentForm({
           aria-invalid={overpayment}
           aria-describedby={overpayment ? "amount-error" : undefined}
           required
+          placeholder="Ej. 500.00"
         />
         {overpayment && (
           <span id="amount-error" className="field-error">
-            El importe supera el saldo de {money(state?.balance ?? 0)}.
+            El importe supera el máximo de {money(state?.balance ?? 0)}.
           </span>
         )}
-        {state && (
-          <button
-            type="button"
-            className="text-button align-start"
-            onClick={() => setAmount(state.balance.toFixed(2))}
-          >
-            Usar saldo completo
-          </button>
-        )}
+        {state && !overpayment && <span className="field-hint">Máximo {money(state.balance)}</span>}
       </div>
       <div className="field">
         <label htmlFor="pay-date">Fecha real de recepción</label>
@@ -251,13 +235,13 @@ export function PaymentForm({
         <label htmlFor="observation">
           Comentario del pago <span>(opcional)</span>
         </label>
-        <input id="observation" name="observation" />
+        <input id="observation" name="observation" placeholder="Ej. Pagó en efectivo" />
       </div>
       <p className="help full-span">
         Registro manual: no comprueba automáticamente una transferencia bancaria.
       </p>
       <div className="form-actions full-span">
-        <button type="button" className="button secondary" onClick={onCancel}>
+        <button type="button" className="button danger" onClick={onCancel}>
           Cancelar
         </button>
         {blockReason && !busy && (
@@ -266,11 +250,11 @@ export function PaymentForm({
           </span>
         )}
         <button
-          className="button"
+          className="button confirm"
           aria-describedby={blockReason ? "payment-block-reason" : undefined}
           disabled={busy || Boolean(blockReason)}
         >
-          {busy ? "Registrando…" : "Registrar pago"}
+          {busy ? "Guardando…" : "Aceptar"}
         </button>
       </div>
     </form>

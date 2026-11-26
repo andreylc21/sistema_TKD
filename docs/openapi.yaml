@@ -53,7 +53,56 @@ components:
         kind: { type: string, enum: [partial, black] }
         date: { type: string, format: date }
         fee: { type: string, description: Costo por alumno, por ejemplo 350.00 }
-        paymentDeadline: { type: string, format: date, description: Fecha límite de pago; por omisión un mes antes del final de cinta negra y dos semanas antes de un parcial }
+        paymentDeadline: { type: string, format: date, description: Fecha límite de pago; por omisión una semana antes del examen }
+    SchoolWrite:
+      type: object
+      additionalProperties: false
+      required: [name,owner,fee]
+      properties:
+        name: { type: string, maxLength: 80 }
+        owner: { type: string, maxLength: 80, description: Nombre de la propietaria que inició sesión }
+        fee: { type: string, description: Mensualidad general, por ejemplo 450.00; aplica a los cobros que se generen desde ahora }
+    CatalogWrite:
+      type: object
+      additionalProperties: false
+      required: [name,price]
+      properties:
+        name: { type: string, maxLength: 60 }
+        sizes: { type: array, items: { type: string, maxLength: 20 }, description: Tallas entre las que se elige al registrar un pedido }
+        price: { type: string, description: Precio por artículo, por ejemplo 650.00; en cada pedido se puede cambiar }
+    GradeCreate:
+      type: object
+      additionalProperties: false
+      required: [name,track]
+      properties:
+        name: { type: string, maxLength: 40 }
+        track: { type: string, enum: [color,poom,dan], description: Tipo de grado; Poom y Dan toman el siguiente nivel disponible }
+        afterId: { type: string, format: uuid, description: Solo cintas de color; el grado queda después de este. Por omisión, al final de las de color }
+    GradeRename:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 40 }
+    GradeMove:
+      type: object
+      additionalProperties: false
+      required: [direction]
+      properties:
+        direction: { type: string, enum: [up,down] }
+    GradeRemove:
+      type: object
+      additionalProperties: false
+      properties:
+        replacementId: { type: string, format: uuid, description: Obligatorio si hay alumnos o historial de exámenes con el grado; todos pasan a este }
+    ExamUpdate:
+      type: object
+      additionalProperties: false
+      required: [date,fee,paymentDeadline]
+      properties:
+        date: { type: string, format: date }
+        fee: { type: string, description: Costo por alumno, por ejemplo 350.00 }
+        paymentDeadline: { type: string, format: date }
     ExamEnrollWrite:
       type: object
       additionalProperties: false
@@ -61,6 +110,7 @@ components:
       properties:
         studentId: { type: string, format: uuid }
         reason: { type: string, description: Obligatorio en el examen final si el alumno aún no cumple los requisitos }
+        method: { type: string, enum: [Efectivo, Transferencia, Tarjeta, Otro], description: Forma de pago; inscribirse registra el pago completo del examen. Por omisión Efectivo }
     ExamExceptionWrite:
       type: object
       additionalProperties: false
@@ -100,7 +150,7 @@ components:
     StudentWrite:
       type: object
       additionalProperties: false
-      required: [firstNames,lastNames,birthDate,gradeId,primaryName,primaryRelation,primaryPhone,emergencyName,emergencyRelation,emergencyPhone,enrollmentDate,billingDay]
+      required: [firstNames,lastNames,birthDate,gradeId,primaryName,primaryRelation,primaryPhone,enrollmentDate,billingDay]
       properties:
         firstNames: { type: string, minLength: 1 }
         lastNames: { type: string, minLength: 1, description: Admite un solo apellido. }
@@ -108,14 +158,15 @@ components:
         gradeId: { type: string, format: uuid }
         email: { type: string, format: email }
         emailOwner: { type: string, enum: [alumno, responsable, ''] }
+        phone: { type: string, description: 'Teléfono propio del alumno, opcional, de 10 dígitos.' }
         primaryName: { type: string, minLength: 1 }
         primaryRelation: { type: string, minLength: 1 }
         primaryPhone: { type: string, minLength: 1 }
-        emergencyName: { type: string, minLength: 1 }
-        emergencyRelation: { type: string, minLength: 1 }
-        emergencyPhone: { type: string, minLength: 1 }
+        emergencyName: { type: string, description: 'Opcional. Si se captura, relación y teléfono también y el teléfono debe ser distinto del principal.' }
+        emergencyRelation: { type: string }
+        emergencyPhone: { type: string }
         restrictions: { type: string }
-        healthConsent: { type: boolean, description: Consentimiento registrado en este entorno. }
+        healthConsent: { type: boolean, description: 'Autorización para el tratamiento de los datos. Es obligatoria y debe ser true.' }
         enrollmentDate: { type: string, format: date }
         billingDay: { type: integer, minimum: 1, maximum: 31 }
         version: { type: integer, minimum: 1 }
@@ -136,6 +187,12 @@ components:
         topic: { type: string, minLength: 1 }
         text: { type: string, minLength: 1 }
         sessionId: { type: [string,'null'], format: uuid }
+        version: { type: integer, minimum: 1 }
+    GroupVersion:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
         version: { type: integer, minimum: 1 }
     GroupWrite:
       type: object
@@ -323,10 +380,17 @@ paths:
     post: { operationId: createGroup, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GroupWrite' } } } }, responses: { '201': { description: Grupo creado }, '200': { description: Reintento idempotente del alta } } }
   /groups/{id}:
     put: { operationId: updateGroup, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GroupWrite' } } } }, responses: { '204': { description: Grupo actualizado } } }
+    delete: { operationId: deleteGroup, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], responses: { '204': { description: Grupo borrado (solo si nunca tuvo clases) }, '409': { description: El grupo tiene clases registradas; se debe archivar } } }
+  /groups/{id}/archive:
+    post: { operationId: archiveGroup, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GroupVersion' } } } }, responses: { '204': { description: Grupo archivado; sus alumnos quedan sin horario desde hoy }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /groups/{id}/restore:
+    post: { operationId: restoreGroup, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GroupVersion' } } } }, responses: { '204': { description: Grupo restaurado }, '409': { $ref: '#/components/responses/Conflict' } } }
   /groups/{id}/assignments:
     post: { operationId: assignStudent, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AssignmentWrite' } } } }, responses: { '204': { description: Asignación vigente } } }
   /sessions:
     post: { operationId: createSession, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SessionWrite' } } } }, responses: { '201': { description: Sesión creada o recuperada } } }
+  /sessions/{id}/finish:
+    post: { operationId: finishSession, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], responses: { '204': { description: Clase terminada; ya no admite cambios de asistencia }, '409': { description: La clase ya terminó o no se puede terminar } } }
   /sessions/{id}/participants:
     post: { operationId: inviteParticipant, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ParticipantWrite' } } } }, responses: { '204': { description: Participante presente sin duplicarse } } }
   /sessions/{id}/attendance/{student}:
@@ -343,18 +407,37 @@ paths:
     post: { operationId: createDiscount, parameters: [{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DiscountWrite' } } } }, responses: { '201': { description: Descuento futuro registrado }, '400': { description: Datos o alumno inválidos } } }
   /orders:
     post: { operationId: createOrder, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderWrite' } } } }, responses: { '201': { description: Pedido y cobros por artículo creados atómicamente }, '200': { description: Reintento idempotente del alta } } }
+  /orders/{id}/deliver:
+    post: { operationId: deliverOrder, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], responses: { '204': { description: Pedido entregado completo }, '409': { description: El pedido ya está entregado o no existe } } }
   /orders/{id}/progress:
     post: { operationId: updateOrderProgressBulk, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderBulkProgressWrite' } } } }, responses: { '204': { description: Todos los artículos activos avanzaron atómicamente o el reintento ya había sido aplicado }, '400': { description: Modo, lista o cantidades inválidas }, '404': { description: Pedido no encontrado en la escuela }, '409': { $ref: '#/components/responses/Conflict' } } }
   /order-items/{id}:
     put: { operationId: updateOrderProgress, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrderProgressWrite' } } } }, responses: { '204': { description: Avance actualizado }, '409': { $ref: '#/components/responses/Conflict' } } }
   /exams:
     post: { operationId: createExam, parameters: [{ $ref: '#/components/parameters/Csrf' },{ $ref: '#/components/parameters/Idempotency' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamWrite' } } } }, responses: { '201': { description: Examen programado, content: { application/json: { schema: { $ref: '#/components/schemas/ResourceCreated' } } } }, '200': { description: Reintento idempotente del alta }, '400': { description: Datos inválidos } } }
+  /exams/{id}:
+    put: { operationId: updateExam, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamUpdate' } } } }, responses: { '204': { description: Examen reprogramado y cobros de los inscritos ajustados }, '400': { description: Datos inválidos }, '404': { description: Examen no encontrado }, '409': { description: Ya tiene resultados o el costo no puede cambiar porque hay pagos } } }
   /exams/{id}/entries:
-    post: { operationId: enrollExam, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamEnrollWrite' } } } }, responses: { '201': { description: Alumno inscrito y cobro generado, content: { application/json: { schema: { $ref: '#/components/schemas/ResourceCreated' } } } }, '400': { description: Alumno no elegible o motivo requerido }, '404': { description: Examen no encontrado }, '409': { description: Ya inscrito } } }
+    post: { operationId: enrollExam, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamEnrollWrite' } } } }, responses: { '201': { description: Alumno inscrito y cobro generado, content: { application/json: { schema: { $ref: '#/components/schemas/ResourceCreated' } } } }, '400': { description: Alumno no elegible o motivo requerido }, '404': { description: Examen no encontrado }, '409': { description: Ya inscrito o la inscripción cerró porque el examen es hoy o ya pasó } } }
   /exams/{id}/entries/{entry}:
     delete: { operationId: removeExamEntry, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ name: entry, in: path, required: true, schema: { type: string, format: uuid } },{ $ref: '#/components/parameters/Csrf' }], responses: { '204': { description: Inscripción retirada y cobro cancelado }, '404': { description: No encontrada }, '409': { description: Ya tiene resultado o el cobro tiene pagos } } }
   /exams/{id}/entries/{entry}/result:
-    put: { operationId: setExamResult, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ name: entry, in: path, required: true, schema: { type: string, format: uuid } },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamResultWrite' } } } }, responses: { '204': { description: Resultado guardado; si aprobó, el grado se actualiza }, '400': { description: Resultado o grado inválido }, '404': { description: No encontrada }, '409': { description: Resultado ya registrado } } }
+    put: { operationId: setExamResult, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ name: entry, in: path, required: true, schema: { type: string, format: uuid } },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ExamResultWrite' } } } }, responses: { '204': { description: Resultado guardado; si aprobó, el grado se actualiza }, '400': { description: Resultado o grado inválido }, '404': { description: No encontrada }, '409': { description: Resultado ya registrado o el examen aún no llega a su fecha } } }
+  /school:
+    put: { operationId: updateSchool, parameters: [{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SchoolWrite' } } } }, responses: { '204': { description: Datos de la escuela guardados }, '400': { description: Datos inválidos } } }
+  /catalog:
+    post: { operationId: createCatalogItem, parameters: [{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogWrite' } } } }, responses: { '201': { description: Artículo agregado al catálogo, content: { application/json: { schema: { $ref: '#/components/schemas/ResourceCreated' } } } }, '400': { description: Datos inválidos }, '409': { description: Nombre repetido } } }
+  /catalog/{id}:
+    put: { operationId: updateCatalogItem, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CatalogWrite' } } } }, responses: { '204': { description: Artículo actualizado }, '400': { description: Datos inválidos }, '404': { description: Artículo no encontrado }, '409': { description: Nombre repetido } } }
+    delete: { operationId: deleteCatalogItem, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], responses: { '204': { description: Artículo borrado; los pedidos ya hechos no cambian }, '404': { description: Artículo no encontrado } } }
+  /grades:
+    post: { operationId: createGrade, parameters: [{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GradeCreate' } } } }, responses: { '201': { description: Grado creado, content: { application/json: { schema: { $ref: '#/components/schemas/ResourceCreated' } } } }, '400': { description: Datos inválidos }, '409': { description: Nombre repetido } } }
+  /grades/{id}:
+    put: { operationId: renameGrade, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GradeRename' } } } }, responses: { '204': { description: Grado renombrado }, '400': { description: Nombre inválido }, '404': { description: Grado no encontrado }, '409': { description: Nombre repetido } } }
+  /grades/{id}/move:
+    post: { operationId: moveGrade, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GradeMove' } } } }, responses: { '204': { description: Cinta de color movida un lugar }, '404': { description: Grado no encontrado }, '409': { description: No es de color o ya está en el extremo } } }
+  /grades/{id}/remove:
+    post: { operationId: removeGrade, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: false, content: { application/json: { schema: { $ref: '#/components/schemas/GradeRemove' } } } }, responses: { '204': { description: Grado borrado; alumnos e historial pasaron al grado de reemplazo }, '404': { description: Grado no encontrado }, '409': { description: Falta el grado de reemplazo, es el último grado o es un nivel Poom o Dan que no es el más alto } } }
   /groups/{id}/move:
     post: { operationId: moveStudent, parameters: [{ $ref: '#/components/parameters/ResourceId' },{ $ref: '#/components/parameters/Csrf' }], requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MoveStudentWrite' } } } }, responses: { '204': { description: Alumno retirado del grupo y, si se indicó, asignado al nuevo }, '404': { description: El alumno no está en el grupo } } }
   /groups/{id}/keep:

@@ -1,12 +1,22 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import type { Bootstrap, Payment, PaymentWrite } from "../../shared/api/contracts";
 import { date, money } from "../../shared/lib/format";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { Dialog } from "../../shared/ui/Dialog";
 import { Money } from "../../shared/ui/Money";
 import { Notice } from "../../shared/ui/PageHeader";
-import { PaymentSummary } from "./components/PaymentSummary";
-import { chargePresentation } from "./model/pagos.model";
+import { DataTable } from "../../shared/ui/DataTable";
+import { EditButton } from "../../shared/ui/EditButton";
+import { FilterSelect } from "../../shared/ui/FilterSelect";
+import { ListTools } from "../../shared/ui/ListTools";
+import { Status } from "../../shared/ui/Status";
+import { monthLabel } from "../reportes/model/reportes.model";
+import {
+  chargePresentation,
+  filterPaymentLines,
+  paymentLines,
+  paymentsCsv,
+} from "./model/pagos.model";
 import { correctPayment, voidPayment as voidPaymentRequest } from "./api/pagos.api";
 
 export function PaymentHistory({ data, reload }: { data: Bootstrap; reload: () => Promise<void> }) {
@@ -14,6 +24,23 @@ export function PaymentHistory({ data, reload }: { data: Bootstrap; reload: () =
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [voiding, setVoiding] = useState<Payment | null>(null);
+  const [filters, setFilters] = useState({ query: "", month: "", category: "" });
+  const lines = useMemo(() => paymentLines(data), [data]);
+  const months = useMemo(
+    () => [...new Set(lines.map((line) => line.payment.date.slice(0, 7)))],
+    [lines],
+  );
+  const shown = useMemo(() => filterPaymentLines(lines, filters), [lines, filters]);
+  function download() {
+    const url = URL.createObjectURL(
+      new Blob([paymentsCsv(shown)], { type: "text/csv;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `pagos${filters.month ? `-${filters.month}` : ""}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
   async function correct(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!editing) return;
@@ -45,75 +72,95 @@ export function PaymentHistory({ data, reload }: { data: Bootstrap; reload: () =
     setMessage("Pago anulado; el importe dejó de contar en el saldo recibido.");
   }
   return (
-    <section className="card spacer-top">
-      <div className="card-header">
-        <div>
-          <h2>Pagos registrados</h2>
-          <p>Movimientos manuales; los anulados no cuentan como ingreso vigente.</p>
-        </div>
-      </div>
+    <>
       {error && !editing && <Notice kind="error">{error}</Notice>}
       {message && <Notice>{message}</Notice>}
-      <div className="table-wrap">
-        <table className="financial-table">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Alumno</th>
-              <th>Forma</th>
-              <th>Estado</th>
-              <th className="num">Importe</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.payments.map((payment) => (
-              <tr key={payment.id}>
-                <td className="nowrap">{date(payment.date)}</td>
-                <td>{data.students.find((s) => s.id === payment.studentId)?.name}</td>
-                <td>{payment.method || "Sin especificar"}</td>
-                <td>
-                  <span className={`badge ${payment.valid ? "success" : "danger"}`}>
-                    {payment.valid ? "Vigente" : "Anulado"}
-                  </span>
-                </td>
-                <td className="num">
-                  <Money value={payment.amount} />
-                </td>
-                <td>
-                  {payment.valid && (
-                    <div className="inline-actions">
-                      <button
-                        className="text-button"
-                        onClick={() => {
-                          setError("");
-                          setEditing(payment);
-                        }}
-                      >
-                        Corregir
-                      </button>
-                      <button
-                        className="text-button danger"
-                        onClick={() => {
-                          setMessage("");
-                          setVoiding(payment);
-                        }}
-                      >
-                        Anular
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ListTools
+        searchId="payment-search"
+        searchLabel="Buscar alumno o concepto"
+        query={filters.query}
+        onQuery={(event) => setFilters({ ...filters, query: event.target.value })}
+        action={
+          <button className="button export" disabled={!shown.length} onClick={download}>
+            Descargar lista (CSV)
+          </button>
+        }
+        filters={
+          <>
+            <FilterSelect
+              id="payment-month"
+              label="Periodo"
+              value={filters.month}
+              onChange={(event) => setFilters({ ...filters, month: event.target.value })}
+            >
+              <option value="">Todos</option>
+              {months.map((month) => (
+                <option key={month} value={month}>
+                  {monthLabel(month)}
+                </option>
+              ))}
+            </FilterSelect>
+            <FilterSelect
+              id="payment-category"
+              label="Tipo de cobro"
+              value={filters.category}
+              onChange={(event) => setFilters({ ...filters, category: event.target.value })}
+            >
+              <option value="">Todos</option>
+              <option>Mensualidades</option>
+              <option>Exámenes</option>
+              <option>Pedidos</option>
+            </FilterSelect>
+          </>
+        }
+      />
+      <DataTable
+        rows={shown}
+        rowKey={({ payment }) => payment.id}
+        empty={{ title: "Sin pagos", text: "Cambia la búsqueda o los filtros." }}
+        columns={[
+          { header: "Fecha", cell: ({ payment }) => date(payment.date) },
+          { header: "Alumno", primary: true, cell: ({ student }) => <strong>{student}</strong> },
+          { header: "Concepto", cell: ({ concept }) => concept },
+          { header: "Forma", cell: ({ payment }) => payment.method || "Sin especificar" },
+          {
+            header: "Estado",
+            cell: ({ payment }) => (
+              <Status tone={payment.valid ? "success" : "danger"}>
+                {payment.valid ? "Saldado" : "Anulado"}
+              </Status>
+            ),
+          },
+          { header: "Importe", cell: ({ payment }) => <Money value={payment.amount} /> },
+          {
+            header: "Acciones",
+            actions: true,
+            cell: ({ payment }) =>
+              payment.valid && (
+                <>
+                  <button
+                    className="button secondary small danger"
+                    onClick={() => {
+                      setMessage("");
+                      setVoiding(payment);
+                    }}
+                  >
+                    Anular
+                  </button>
+                  <EditButton
+                    onClick={() => {
+                      setError("");
+                      setEditing(payment);
+                    }}
+                  />
+                </>
+              ),
+          },
+        ]}
+      />
       {voiding && (
         <ConfirmDialog
           title="Anular pago"
-          confirmLabel="Anular pago"
-          danger
           field={{ label: "Motivo de la anulación" }}
           onConfirm={(reason) => voidPayment(voiding, reason)}
           onCancel={() => setVoiding(null)}
@@ -133,7 +180,7 @@ export function PaymentHistory({ data, reload }: { data: Bootstrap; reload: () =
           />
         </Dialog>
       )}
-    </section>
+    </>
   );
 }
 
@@ -157,7 +204,6 @@ function CorrectionForm({
   const state = charge ? chargePresentation(charge, data) : null;
   // El pago que se corrige ya cuenta en el saldo de su cargo actual: se devuelve para comparar.
   const own = chargeId === payment.chargeId ? payment.amount : 0;
-  const received = state ? state.received - own : 0;
   const available = state ? state.balance + own : 0;
   const numericAmount = Number(amount || 0);
   const overpayment = Boolean(state && numericAmount > available);
@@ -190,14 +236,6 @@ function CorrectionForm({
           ))}
         </select>
       </div>
-      {charge && (
-        <PaymentSummary
-          charge={charge}
-          received={received}
-          balance={available}
-          amount={numericAmount}
-        />
-      )}
       <div className="field">
         <label htmlFor="edit-amount">Importe</label>
         <input
@@ -214,18 +252,10 @@ function CorrectionForm({
         />
         {overpayment && (
           <span id="edit-amount-error" className="field-error">
-            El importe supera el saldo disponible de {money(available)}.
+            El importe supera el máximo de {money(available)}.
           </span>
         )}
-        {state && (
-          <button
-            type="button"
-            className="text-button align-start"
-            onClick={() => setAmount(available.toFixed(2))}
-          >
-            Usar saldo completo
-          </button>
-        )}
+        {state && !overpayment && <span className="field-hint">Máximo {money(available)}</span>}
       </div>
       <div className="field">
         <label htmlFor="edit-date">Fecha recibida</label>
@@ -243,13 +273,23 @@ function CorrectionForm({
       </div>
       <div className="field">
         <label htmlFor="edit-observation">Comentario del pago</label>
-        <input id="edit-observation" name="observation" defaultValue={payment.reason} />
+        <input
+          id="edit-observation"
+          name="observation"
+          defaultValue={payment.reason}
+          placeholder="Ej. Pagó en efectivo"
+        />
       </div>
       <div className="field full-span">
         <label htmlFor="edit-reason">
           Motivo de la corrección <b>*</b>
         </label>
-        <input id="edit-reason" name="reason" required />
+        <input
+          id="edit-reason"
+          name="reason"
+          required
+          placeholder="Ej. Se capturó mal el importe"
+        />
       </div>
       <div className="form-actions full-span">
         {blockReason && (
@@ -257,15 +297,15 @@ function CorrectionForm({
             {blockReason}
           </span>
         )}
-        <button type="button" className="button secondary" data-dialog-close onClick={onCancel}>
+        <button type="button" className="button danger" data-dialog-close onClick={onCancel}>
           Cancelar
         </button>
         <button
-          className="button"
+          className="button confirm"
           aria-describedby={blockReason ? "edit-block-reason" : undefined}
           disabled={Boolean(blockReason)}
         >
-          Guardar corrección
+          Aceptar
         </button>
       </div>
     </form>

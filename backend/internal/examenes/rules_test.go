@@ -44,7 +44,7 @@ func TestEvaluate(t *testing.T) {
 }
 
 func TestDefaultLeadDays(t *testing.T) {
-	if DefaultLeadDays("black") != 30 || DefaultLeadDays("partial") != 14 {
+	if DefaultLeadDays("black") != 7 || DefaultLeadDays("partial") != 7 {
 		t.Fatal("el final se paga un mes antes y el parcial dos semanas antes")
 	}
 }

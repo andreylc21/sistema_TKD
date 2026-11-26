@@ -55,17 +55,17 @@ export function FormScreen({
               autoFocus
               onClick={() => setPending(null)}
             >
-              Seguir editando
+              Cancelar
             </button>
             <button
               type="button"
-              className="button danger small"
+              className="button success small"
               onClick={() => {
                 setPending(null);
                 pending();
               }}
             >
-              Descartar cambios
+              Aceptar
             </button>
           </div>
         </div>

@@ -191,6 +191,38 @@ export interface paths {
         get?: never;
         put: operations["updateGroup"];
         post?: never;
+        delete: operations["deleteGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreGroup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -223,6 +255,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["createSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finishSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -357,6 +405,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/{id}/deliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deliverOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/{id}/progress": {
         parameters: {
             query?: never;
@@ -405,6 +469,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/exams/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateExam"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/exams/{id}/entries": {
         parameters: {
             query?: never;
@@ -447,6 +527,118 @@ export interface paths {
         get?: never;
         put: operations["setExamResult"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/school": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateSchool"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createCatalogItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/catalog/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateCatalogItem"];
+        post?: never;
+        delete: operations["deleteCatalogItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createGrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grades/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["renameGrade"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grades/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["moveGrade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/grades/{id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["removeGrade"];
         delete?: never;
         options?: never;
         head?: never;
@@ -514,15 +706,69 @@ export interface components {
             fee: string;
             /**
              * Format: date
-             * @description Fecha límite de pago; por omisión un mes antes del final de cinta negra y dos semanas antes de un parcial
+             * @description Fecha límite de pago; por omisión una semana antes del examen
              */
             paymentDeadline?: string;
+        };
+        SchoolWrite: {
+            name: string;
+            /** @description Nombre de la propietaria que inició sesión */
+            owner: string;
+            /** @description Mensualidad general */
+            fee: string;
+        };
+        CatalogWrite: {
+            name: string;
+            /** @description Tallas entre las que se elige al registrar un pedido */
+            sizes?: string[];
+            /** @description Precio por artículo */
+            price: string;
+        };
+        GradeCreate: {
+            name: string;
+            /**
+             * @description Tipo de grado; Poom y Dan toman el siguiente nivel disponible
+             * @enum {string}
+             */
+            track: "color" | "poom" | "dan";
+            /**
+             * Format: uuid
+             * @description Solo cintas de color; el grado queda después de este. Por omisión
+             */
+            afterId?: string;
+        };
+        GradeRename: {
+            name: string;
+        };
+        GradeMove: {
+            /** @enum {string} */
+            direction: "up" | "down";
+        };
+        GradeRemove: {
+            /**
+             * Format: uuid
+             * @description Obligatorio si hay alumnos o historial de exámenes con el grado; todos pasan a este
+             */
+            replacementId?: string;
+        };
+        ExamUpdate: {
+            /** Format: date */
+            date: string;
+            /** @description Costo por alumno */
+            fee: string;
+            /** Format: date */
+            paymentDeadline: string;
         };
         ExamEnrollWrite: {
             /** Format: uuid */
             studentId: string;
             /** @description Obligatorio en el examen final si el alumno aún no cumple los requisitos */
             reason?: string;
+            /**
+             * @description Forma de pago; inscribirse registra el pago completo del examen. Por omisión Efectivo
+             * @enum {string}
+             */
+            method?: "Efectivo" | "Transferencia" | "Tarjeta" | "Otro";
         };
         ExamExceptionWrite: {
             reason: string;
@@ -564,14 +810,17 @@ export interface components {
             email?: string;
             /** @enum {string} */
             emailOwner?: "alumno" | "responsable" | "";
+            /** @description Teléfono propio del alumno, opcional, de 10 dígitos. */
+            phone?: string;
             primaryName: string;
             primaryRelation: string;
             primaryPhone: string;
-            emergencyName: string;
-            emergencyRelation: string;
-            emergencyPhone: string;
+            /** @description Opcional. Si se captura, relación y teléfono también y el teléfono debe ser distinto del principal. */
+            emergencyName?: string;
+            emergencyRelation?: string;
+            emergencyPhone?: string;
             restrictions?: string;
-            /** @description Consentimiento registrado en este entorno. */
+            /** @description Autorización para el tratamiento de los datos. Es obligatoria y debe ser true. */
             healthConsent?: boolean;
             /** Format: date */
             enrollmentDate: string;
@@ -593,6 +842,9 @@ export interface components {
             /** Format: uuid */
             sessionId?: string | null;
             version?: number;
+        };
+        GroupVersion: {
+            version: number;
         };
         GroupWrite: {
             name: string;
@@ -1125,6 +1377,89 @@ export interface operations {
             };
         };
     };
+    deleteGroup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grupo borrado (solo si nunca tuvo clases) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El grupo tiene clases registradas; se debe archivar */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    archiveGroup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupVersion"];
+            };
+        };
+        responses: {
+            /** @description Grupo archivado; sus alumnos quedan sin horario desde hoy */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    restoreGroup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupVersion"];
+            };
+        };
+        responses: {
+            /** @description Grupo restaurado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
     assignStudent: {
         parameters: {
             query?: never;
@@ -1169,6 +1504,35 @@ export interface operations {
         responses: {
             /** @description Sesión creada o recuperada */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    finishSession: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Clase terminada; ya no admite cambios de asistencia */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description La clase ya terminó o no se puede terminar */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1411,6 +1775,35 @@ export interface operations {
             };
         };
     };
+    deliverOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pedido entregado completo */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description El pedido ya está entregado o no existe */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     updateOrderProgressBulk: {
         parameters: {
             query?: never;
@@ -1521,6 +1914,53 @@ export interface operations {
             };
         };
     };
+    updateExam: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamUpdate"];
+            };
+        };
+        responses: {
+            /** @description Examen reprogramado y cobros de los inscritos ajustados */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Datos inválidos */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Examen no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ya tiene resultados o el costo no puede cambiar porque hay pagos */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     enrollExam: {
         parameters: {
             query?: never;
@@ -1561,7 +2001,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Ya inscrito */
+            /** @description Ya inscrito o la inscripción cerró porque el examen es hoy o ya pasó */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1646,7 +2086,321 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Resultado ya registrado */
+            /** @description Resultado ya registrado o el examen aún no llega a su fecha */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateSchool: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchoolWrite"];
+            };
+        };
+        responses: {
+            /** @description Datos de la escuela guardados */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Datos inválidos */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createCatalogItem: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogWrite"];
+            };
+        };
+        responses: {
+            /** @description Artículo agregado al catálogo */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceCreated"];
+                };
+            };
+            /** @description Datos inválidos */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nombre repetido */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateCatalogItem: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogWrite"];
+            };
+        };
+        responses: {
+            /** @description Artículo actualizado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Datos inválidos */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Artículo no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nombre repetido */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteCatalogItem: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Artículo borrado; los pedidos ya hechos no cambian */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Artículo no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createGrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GradeCreate"];
+            };
+        };
+        responses: {
+            /** @description Grado creado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceCreated"];
+                };
+            };
+            /** @description Datos inválidos */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nombre repetido */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    renameGrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GradeRename"];
+            };
+        };
+        responses: {
+            /** @description Grado renombrado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nombre inválido */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Grado no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Nombre repetido */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    moveGrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GradeMove"];
+            };
+        };
+        responses: {
+            /** @description Cinta de color movida un lugar */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Grado no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No es de color o ya está en el extremo */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeGrade: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["Csrf"];
+            };
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GradeRemove"];
+            };
+        };
+        responses: {
+            /** @description Grado borrado; alumnos e historial pasaron al grado de reemplazo */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Grado no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Falta el grado de reemplazo */
             409: {
                 headers: {
                     [name: string]: unknown;

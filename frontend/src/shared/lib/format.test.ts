@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { date, dateLong, dueStatus, paidFor, paymentProgress } from "./format";
+import { conceptLabel, date, dateLong, dueStatus, paidFor, paymentProgress } from "./format";
 
 describe("dueStatus", () => {
   it("marks an unpaid past charge as overdue", () => {
@@ -49,5 +49,25 @@ describe("date", () => {
   it("does not throw for an empty or incomplete value", () => {
     expect(date("")).toBe("Fecha no válida");
     expect(date("2026-1")).toBe("Fecha no válida");
+  });
+});
+
+describe("conceptLabel", () => {
+  it("writes the month of a monthly charge instead of the ISO period", () => {
+    expect(conceptLabel("Mensualidad 2026-10")).toBe("Mensualidad octubre 2026");
+  });
+
+  it("writes the date of an exam concept as dd/mm/aaaa", () => {
+    expect(conceptLabel("Examen parcial · 2026-10-16")).toBe("Examen parcial · 16/10/2026");
+  });
+
+  it("leaves other concepts untouched", () => {
+    expect(conceptLabel("Examen de grado")).toBe("Examen de grado");
+  });
+});
+
+describe("date", () => {
+  it("writes dates as dd/mm/aaaa", () => {
+    expect(date("2026-10-05")).toBe("05/10/2026");
   });
 });

@@ -66,11 +66,6 @@ func Evaluate(target, age, partials int, monthsSince *int) Progress {
 	return p
 }
 
-// DefaultLeadDays es la anticipación con que debe pagarse un examen: un mes el final de cinta
-// negra y dos semanas un parcial.
-func DefaultLeadDays(kind string) int {
-	if kind == "black" {
-		return 30
-	}
-	return 14
-}
+// DefaultLeadDays es la anticipación con que debe pagarse un examen: a más tardar una semana
+// antes de la fecha, sea parcial o final de cinta negra.
+func DefaultLeadDays(string) int { return 7 }
